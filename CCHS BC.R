@@ -362,8 +362,8 @@ spatial_lookups <- create_spatial_lookup()
 create_spatial_lookup_memoised <- memoise(create_spatial_lookup)
 spatial_lookups <- create_spatial_lookup_memoised()
 
-# #save into rds file if needed
-# saveRDS(spatial_lookups, "spatial_lookups.rds")
+# # #save into rds file if needed
+#  saveRDS(spatial_lookups, "spatial_lookups.rds")
 
 #import rds file
 #spatial_lookups <- readRDS("spatial_lookups.rds")
@@ -379,7 +379,7 @@ color_comb <- c("#a6cee3", "#1f78b4", "#33a02c","#fb9a99","#fdbf6f","#ff7f00","#
 # Shiny app####
 ui <- page_navbar(
   theme = bs_theme(version = 5, bootswatch = "minty", primary = "#808080"), #theme colors
-  title = "BC CCHS Data",
+  title = "Healthcare Access Trends in British Columbia",
   header = useShinyjs(),
   nav_panel(title = "Map",
             page_fillable(
@@ -401,7 +401,7 @@ ui <- page_navbar(
                   
                   ,
                   absolutePanel(
-                    fixed = FALSE, top = 25, left = 25, width = 325, draggable = F, id = "map_side_panel", #panel with selections
+                    fixed = FALSE, top = 25, left = 25, width = 325, draggable = F, id = "map_side_panel",
                                 wellPanel(style = "background-color: rgba(241, 242, 243, 0.90);", #makes the absolute panel anti-flash white
                                           selectInput("selected_year", "Year",
                                                       choices = c("2015/2016",
@@ -468,7 +468,8 @@ ui <- page_navbar(
                                       selected = "Geographic Boundaries")
                        )
                 ),
-                column(9,withSpinner(plotlyOutput("bar_plot", height = "600px"))
+                column(9,
+                       card(withSpinner(plotlyOutput("bar_plot", height = "600px")))
                 )
               )
             )
@@ -482,7 +483,7 @@ server <- function(input, output, session) {
   
   #### Map server code####
   pop_data <- reactive({
-    req(input$selected_year, input$gender_filter, input$age_filter, 
+    req(input$selected_year, input$gender_filter, input$age_filter,
         input$measure, input$geo_level)
     
     # Create the lookup key
@@ -494,15 +495,15 @@ server <- function(input, output, session) {
         return(spatial_lookups$ha_phc005[[key]])
       } else if (input$measure == "PHC_020") {
         return(spatial_lookups$ha_phc020[[key]])
-      } else {
+      } else { # PHC_035
         return(spatial_lookups$ha_phc035[[key]])
       }
-    } else {
+    } else { # HSDA
       if (input$measure == "PHC_005") {
         return(spatial_lookups$hsda_phc005[[key]])
       } else if (input$measure == "PHC_020") {
         return(spatial_lookups$hsda_phc020[[key]])
-      } else {
+      } else { # PHC_035
         return(spatial_lookups$hsda_phc035[[key]])
       }
     }
@@ -511,9 +512,9 @@ server <- function(input, output, session) {
   
   output$map <- renderLeaflet({
     leaflet(options = leafletOptions(zoomControl = FALSE, zoomSnap = 0.75, zoomDelta = 0.75)) %>%
-      addTiles() %>% 
+      addTiles() %>%
       setView(lng = -128, lat = 53.00, zoom = 5.6) %>%
-      setMaxBounds(lng1 = -180, lat1 = 10, lng2 = -65, lat2 = 80) %>% 
+      setMaxBounds(lng1 = -180, lat1 = 10, lng2 = -65, lat2 = 80) %>%
       htmlwidgets::onRender("
       function(el, x) {
         var map = this;
@@ -533,17 +534,16 @@ server <- function(input, output, session) {
   # Update map
   observe({
     data <- pop_data()
-    req(data)
+    req(data) # Ensure data is loaded
     
     #Color palette
     pal <- colorNumeric("viridis", domain = c(0, 1.5), reverse = TRUE, na.color = "transparent")
-    
     
     # Function to get PHC_Q010 data for the region
     get_phc010_data <- function(region_name, is_ha = TRUE) {
       # Select appropriate dataframe based on geographic level
       if(is_ha) {
-        df <- phc010_ha %>% 
+        df <- phc010_ha %>%
           filter(year == input$selected_year, health_auth == region_name)
         
         if(input$gender_filter != "All") {
@@ -554,7 +554,7 @@ server <- function(input, output, session) {
           df <- df %>% filter(age_group == input$age_filter)
         }
       } else {
-        df <- phc010_hsda %>% 
+        df <- phc010_hsda %>%
           filter(year == input$selected_year, health_area == region_name)
         
         if(input$gender_filter != "All") {
@@ -589,21 +589,20 @@ server <- function(input, output, session) {
     get_phc035_data <- function(region_name, is_ha = TRUE) {
       # Select appropriate dataframe based on geographic level
       if(is_ha) {
-        df <- phc035_ha %>% 
+        df <- phc035_ha %>%
           filter(year == input$selected_year, health_auth == region_name)
         
-        # Apply filters if needed
+        # Age and gender filters
         if(input$gender_filter != "All") {
           df <- df %>% filter(gender == input$gender_filter)
         }
         if(input$age_filter != "All") {
           df <- df %>% filter(age_group == input$age_filter)
         }
-      } else {
-        df <- phc035_hsda %>% 
+      } else { #else use HSDA data
+        df <- phc035_hsda %>%
           filter(year == input$selected_year, health_area == region_name)
         
-        # Apply filters if needed
         if(input$gender_filter != "All") {
           df <- df %>% filter(gender == input$gender_filter)
         }
@@ -625,19 +624,19 @@ server <- function(input, output, session) {
         phc035_agg$PHC_035 == 4 ~ "4-6 days",
         phc035_agg$PHC_035 == 5 ~ "1-2 weeks",
         phc035_agg$PHC_035 == 6 ~ "2 weeks - 1 month",
-        TRUE ~ "Unknown"
+        TRUE ~ "Unknown" # Note: Original code used 1:6, but binary used 1:7. Assuming 1:6 is for detailed breakdown.
       )
       
-      # Add binary grouping for clarity
+      # Add binary grouping
       phc035_agg$wait_group <- ifelse(phc035_agg$PHC_035 <= 3, "≤3 days", ">3 days")
       
       return(phc035_agg)
     }
     
-    
     # Generate click popup on map
     popup_contents <- lapply(1:nrow(data), function(i) {
       row <- data[i,]
+      is_special_na_case <- FALSE # Flag for the specific NA case
       
       if(input$geo_level == "HA") {
         region_name <- row$HLTH_AUTHORITY_NAME
@@ -645,92 +644,112 @@ server <- function(input, output, session) {
       } else {
         region_name <- row$HLTH_SERVICE_DLVR_AREA_NAME
         is_ha <- FALSE
+        # Check for the specific NA cases
+        if (input$selected_year == "2019/2020" && region_name == "Northeast" && is.na(row$percent)) {
+          is_special_na_case <- TRUE
+        }
       }
       
-      #name for popup table
+      # name for popup table
       measure_name <- case_when(
-        input$measure == "PHC_005" ~ "Immediate Care",
-        input$measure == "PHC_020" ~ "Regular Provider",
+        input$measure == "PHC_005" ~ "Immediate Care Available",
+        input$measure == "PHC_020" ~ "Has a Regular Provider",
         input$measure == "PHC_035" ~ "Appointment Wait Time >3 days",
         TRUE ~ input$measure
       )
+      
+      percent_display_line <- if (is_special_na_case) {
+        "Percent: Not available<br>"
+      } else if (is.na(row$percent)) {
+        "Percent: NA<br>" # Handles other potential NAs
+      } else {
+        paste0("Percent: ", round(row$percent * 100, 1), "%<br>")
+      }
+      
+      counts_display_lines <- if (is_special_na_case) { #lines for NA tables
+        "Yes, count: Not available<br>No, count: Not available<br>Total responses: Not available"
+      } else {
+        # Handle potential NAs in counts 
+        paste0("Yes, count: ", ifelse(is.na(row$count_yes), "NA", row$count_yes), "<br>",
+               "No, count: ", ifelse(is.na(row$count_no), "NA", row$count_no), "<br>",
+               "Total responses: ", ifelse(is.na(row$count_yes + row$count_no), "NA", row$count_yes + row$count_no))
+      }
       
       # popup content content
       basic_info <- paste0(
         "<strong>", region_name, "</strong><br>",
         "Measure: ", measure_name, "<br>",
         "Year: ", input$selected_year, "<br>",
-        "Percent: ", round(row$percent * 100, 1), "%<br>",
-        "Yes, count: ", row$count_yes, "<br>",
-        "No, count: ", row$count_no, "<br>",
-        "Total responses: ", row$count_yes + row$count_no
+        percent_display_line,   
+        counts_display_lines    
       )
       
-      # Add PHC_010 and PHC_035 table breakdown
-      if(input$measure == "PHC_005") {
-        phc010_data <- get_phc010_data(region_name, is_ha)
-        
-        # Calculate total for percentage
-        total_phc010 <- sum(phc010_data$count)
-        
-        if(total_phc010 > 0) {
-          # Create a HTML table for PHC_010 responses
-          phc010_html <- "<br><br><strong>For those who have a place for immediate care, what kind of place is it:</strong><br>"
-          phc010_html <- paste0(phc010_html, "<table style='width:100%; border-collapse:collapse; margin-top:10px;'>")
-          phc010_html <- paste0(phc010_html, "<tr><th style='text-align:left;'>Response</th><th style='text-align:right;'>Count</th><th style='text-align:right;'>%</th></tr>")
+        # Add PHC_010 and PHC_035 table only if data is available
+      if (!is_special_na_case) {
+        if(input$measure == "PHC_005") {
+          phc010_data <- get_phc010_data(region_name, is_ha)
+          total_phc010 <- sum(phc010_data$count, na.rm = TRUE) # Ensure NA counts don't break sum
           
-          for(j in 1:nrow(phc010_data)) {
-            row_data <- phc010_data[j,]
-            pct <- round((row_data$count / total_phc010) * 100, 1)
-            phc010_html <- paste0(
-              phc010_html,
-              "<tr><td style='border-top:1px solid #ddd; padding:4px 0;'>", row_data$response_label, 
-              "</td><td style='border-top:1px solid #ddd; text-align:right; padding:4px 0;'>", row_data$count,
-              "</td><td style='border-top:1px solid #ddd; text-align:right; padding:4px 0;'>", pct, "%</td></tr>"
-            )
+          # Check if there's actually data to display
+          if(nrow(phc010_data) > 0 && total_phc010 > 0) {
+            # Create a HTML table for PHC_010 responses
+            phc010_html <- "<br><br><strong>For those who have a place for immediate care, what kind of place is it:</strong><br>"
+            phc010_html <- paste0(phc010_html, "<table style='width:100%; border-collapse:collapse; margin-top:10px;'>")
+            phc010_html <- paste0(phc010_html, "<tr><th style='text-align:left;'>Response</th><th style='text-align:right;'>Count</th><th style='text-align:right;'>%</th></tr>")
+            
+            for(j in 1:nrow(phc010_data)) {
+              row_data <- phc010_data[j,]
+              # Avoid division by zero if total is somehow 0 despite nrow > 0
+              pct <- if(total_phc010 > 0) round((row_data$count / total_phc010) * 100, 1) else 0
+              phc010_html <- paste0(
+                phc010_html,
+                "<tr><td style='border-top:1px solid #ddd; padding:4px 0;'>", row_data$response_label,
+                "</td><td style='border-top:1px solid #ddd; text-align:right; padding:4px 0;'>", row_data$count,
+                "</td><td style='border-top:1px solid #ddd; text-align:right; padding:4px 0;'>", pct, "%</td></tr>"
+              )
+            }
+            phc010_html <- paste0(phc010_html, "</table>")
+            basic_info <- paste0(basic_info, phc010_html)
           }
+        } else if(input$measure == "PHC_035") {
+          # PHC_035 breakdown
+          phc035_data <- get_phc035_data(region_name, is_ha)
+          total_phc035 <- sum(phc035_data$count, na.rm = TRUE)
           
-          phc010_html <- paste0(phc010_html, "</table>")
-          basic_info <- paste0(basic_info, phc010_html)
-        }
-      } else if(input$measure == "PHC_035") {
-        # Add PHC_035 breakdown
-        phc035_data <- get_phc035_data(region_name, is_ha)
-        
-        # Calculate total for percentage
-        total_phc035 <- sum(phc035_data$count)
-        
-        if(total_phc035 > 0) {
-          # Create a HTML table for PHC_035 responses
-          phc035_html <- "<br><br><strong>Wait time for a regular health care provider:</strong><br>"
-          phc035_html <- paste0(phc035_html, "When seeking care for a minor health problem, how long is the wait before getting an appointment.<br>")
-          phc035_html <- paste0(phc035_html, "<table style='width:100%; border-collapse:collapse; margin-top:10px;'>")
-          phc035_html <- paste0(phc035_html, "<tr><th style='text-align:left;'>Response</th><th style='text-align:right;'>Count</th><th style='text-align:right;'>%</th><th style='text-align:center;'>Category</th></tr>")
-          
-          for(j in 1:nrow(phc035_data)) {
-            row_data <- phc035_data[j,]
-            pct <- round((row_data$count / total_phc035) * 100, 1)
-            phc035_html <- paste0(
-              phc035_html,
-              "<tr><td style='border-top:1px solid #ddd; padding:4px 0;'>", row_data$response_label, 
-              "</td><td style='border-top:1px solid #ddd; text-align:right; padding:4px 0;'>", row_data$count,
-              "</td><td style='border-top:1px solid #ddd; text-align:right; padding:4px 0;'>", pct, "%",
-              "</td><td style='border-top:1px solid #ddd; text-align:center; padding:4px 0;'>", row_data$wait_group, "</td></tr>"
-            )
+          if(nrow(phc035_data) > 0 && total_phc035 > 0) {
+            # Create a HTML table for PHC_035 responses
+            phc035_html <- "<br><br><strong>Wait time for a regular health care provider:</strong><br>"
+            phc035_html <- paste0(phc035_html, "When seeking care for a minor health problem, how long is the wait before getting an appointment.<br>")
+            phc035_html <- paste0(phc035_html, "<table style='width:100%; border-collapse:collapse; margin-top:10px;'>")
+            phc035_html <- paste0(phc035_html, "<tr><th style='text-align:left;'>Response</th><th style='text-align:right;'>Count</th><th style='text-align:right;'>%</th><th style='text-align:center;'>Category</th></tr>")
+            
+            for(j in 1:nrow(phc035_data)) {
+              row_data <- phc035_data[j,]
+              pct <- if(total_phc035 > 0) round((row_data$count / total_phc035) * 100, 1) else 0
+              phc035_html <- paste0(
+                phc035_html,
+                "<tr><td style='border-top:1px solid #ddd; padding:4px 0;'>", row_data$response_label,
+                "</td><td style='border-top:1px solid #ddd; text-align:right; padding:4px 0;'>", row_data$count,
+                "</td><td style='border-top:1px solid #ddd; text-align:right; padding:4px 0;'>", pct, "%",
+                "</td><td style='border-top:1px solid #ddd; text-align:center; padding:4px 0;'>", row_data$wait_group, "</td></tr>"
+              )
+            }
+            phc035_html <- paste0(phc035_html, "</table>")
+            basic_info <- paste0(basic_info, phc035_html)
           }
-          
-          phc035_html <- paste0(phc035_html, "</table>")
-          basic_info <- paste0(basic_info, phc035_html)
         }
+      } else {
+        basic_info <- paste0(basic_info, "<br><br><i>Detailed data not available for this area and year.</i>") #custom label for northeast
       }
+      
       return(paste0("<div style='min-width:300px; max-width:350px;'>", basic_info, "</div>"))
-    })
+    }) 
     
     
     
     #leaflet map proxy info
     leafletProxy("map", data = data) %>%
-      clearShapes() %>% #clears out old polygons
+      clearShapes() %>% #clears out polygons
       addPolygons(
         fillColor = ~pal(percent),
         fillOpacity = 0.7,
@@ -739,20 +758,33 @@ server <- function(input, output, session) {
         smoothFactor = 0.3,
         # Mouseover tooltip
         label = ~{
-          if(input$geo_level == "HA") {
-            paste0(HLTH_AUTHORITY_NAME, ": ", round(percent * 100, 1), "%")
+          # Determine the correct name for this row based on the single input$geo_level value
+          current_region_name <- if (input$geo_level == "HA") {
+            HLTH_AUTHORITY_NAME
           } else {
-            paste0(HLTH_SERVICE_DLVR_AREA_NAME, ": ", round(percent * 100, 1), "%")
+            HLTH_SERVICE_DLVR_AREA_NAME 
           }
+          
+          # Mouseover display text
+          display_text <- ifelse(is.na(percent),
+                                 # if Northeast region, then we use this.
+                                 ifelse(input$geo_level == "HSDA" &
+                                          input$selected_year == "2019/2020" &
+                                          HLTH_SERVICE_DLVR_AREA_NAME == "Northeast", 
+                                        "Not available", 
+                                        "NA"),          
+                                 paste0(round(percent * 100, 1), "%")
+          )
+          
+          paste0(current_region_name, ": ", display_text)
         },
         labelOptions = labelOptions(
           style = list("font-weight" = "normal", padding = "3px 8px"),
           textsize = "15px",
           direction = "auto"
         ),
-        # Use the HTML popup content
+        # Use the HTML popup content 
         popup = popup_contents,
-        # Make popup wider to fit the table
         popupOptions = popupOptions(
           maxWidth = 350,
           minWidth = 300
@@ -764,20 +796,22 @@ server <- function(input, output, session) {
           fillOpacity = 0.7,
           bringToFront = TRUE
         )
-      ) %>% 
+      ) %>%
       clearControls() %>%  # Clear previous legends
       addLegend(
         position = "bottomright",
         pal = pal,
-        values = c(0,1),
+        values = c(0,1), # Domain for legend
         title = "Percent",
         labFormat = labelFormat(
           transform = function(x) round(x * 100, 1),
           suffix = "%"
         ),
         opacity = 0.7,
-        bins = seq(0, 1, by = 0.2),)
-  })
+        bins = seq(0, 1, by = 0.2),
+        na.label = "Not available / NA" # NA label in legend
+      )
+  }) 
   
   observeEvent(input$hide_button, {
     hide("map_side_panel")
@@ -788,7 +822,6 @@ server <- function(input, output, session) {
     show("map_side_panel")
     hide("show_panel_container")
   })
-  
 
   
   
@@ -912,21 +945,21 @@ server <- function(input, output, session) {
                             <h5> Current State of Care </h5>
                             <p>Primary care is a key first point of contact with British Columbia's health care system and plays a vital role in patient outcomes. Yet timely access to these services continues to be a significant concern for residents throughout the province. Many British Columbians face extended wait times for appointments, struggle to establish relationships with regular healthcare providers, or lack knowledge of where to seek immediate care when needed. These fundamental aspects of healthcare access vary significantly across regions, demographics, and service types, creating potential inequities in our healthcare system.</p>
                             <h5>About This Dashboard</h5>
-                            <p>This interactive tool presents data from the Canadian Community Health Survey, offering a comprehensive view of healthcare access patterns throughout the province. The dashboard visualizes key indicators of primary care accessibility, including appointment wait times, access to regular healthcare providers, and availability of immediate care options. By understanding these patterns, we aim to:</p>
+                            <p> The goal of this dashboard is to offer a comprehensive view of healthcare access patterns throughout the province using data from the <b> Canadian Community Health Survey (CCHS)</b>. The dashboard visualizes key indicators of primary care accessibility, including appointment wait times, access to regular healthcare providers, and availability of immediate care options. By understanding these patterns, we can:</p>
                             <ul>
                             <li>Identify underserved regions and populations</li>
                             <li>Support targeted improvements in healthcare delivery</li>
                             <li>Inform resource allocation and policy development</li>
                             </ul>
                             <h5>Data Source and Methodology</h5>
-                            <p>The data presented comes from the Canadian Community Health Survey (CCHS) cycles from 2015/2016, 2017/2018, and 2019/2020<sup>1</sup>. The CCHS is a cross-sectional survey that collects information related to health status, healthcare utilization, and health determinants for the Canadian population. For the 2019/2020 cycle, no data was collected from the Northeast health service delivery area. Our analyses focus specifically on British Columbia respondents and questions related to appointment waiting periods, regular provider relationships, and access to immediate care facilities. </p>
+                            <p>The data comes from CCHS cycles 2015/2016, 2017/2018, and 2019/2020<sup>1</sup>. The CCHS is a cross-sectional survey that collects information related to health status, healthcare utilization, and health determinants for the Canadian population. For the 2019/2020 cycle, no data was collected from the Northeast health service delivery area. The analyses focus specifically on British Columbia respondents and questions related to appointment waiting periods, regular provider relationships, and access to immediate care facilities. </p>
                             <h6>References</h6>
                             <ol style = 'font-size: 15px;'>
                             <li>Statistics Canada.<i> Canadian Community Health Survey: Public Use Microdata File, 2015/2016, 2017/2018, and 2019/2020</i>. Ottawa, ON. doi:<a href=' https://doi.org/10.25318/82m0013x-eng'> https://doi.org/10.25318/82m0013x-eng</a> </li>
                             </ol>
                             <br>
                             <i>Developed by Kenneth Zhang, Master of Public Health.<br>
-                            Contact:<a href ='mailto:kkzhang@sfu.ca'> kkzhang@sfu.ca</a></i>
+                            Contact: <a href ='mailto:kkzhang@sfu.ca'>kkzhang@sfu.ca</a></i>
                             "
                             ),
                             footer = modalButton("Close"),
