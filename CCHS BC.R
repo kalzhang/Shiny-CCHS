@@ -39,7 +39,7 @@ bc_2017_18 <- readRDS("bc_2017_18.rds")
 bc_2015_16 <- readRDS("bc_2015_16.rds")
 
 #recoding ages to new bins (note that the bins for 2019-2020 are ages 12-27, 18-34, 35-49, 50-64, 65+)
-bc_2017_18 <- bc_2017_18 %>% 
+bc_2017_18 <- bc_2017_18 %>%
   mutate(DHHGAGE_new = case_when(
     DHHGAGE %in% c(3,4) ~ 1,      #ages 10-19
     DHHGAGE %in% c(5,6,7) ~ 2,    #ages 20-34
@@ -47,10 +47,10 @@ bc_2017_18 <- bc_2017_18 %>%
     DHHGAGE %in% c(11,12,13) ~ 4, #ages 50-64
     DHHGAGE >13 ~ 5,              #ages 65+
     TRUE ~ NA_real_
-  )) %>% 
+  )) %>%
   subset(!is.na(DHHGAGE_new))
 
-bc_2015_16 <- bc_2015_16 %>% 
+bc_2015_16 <- bc_2015_16 %>%
   mutate(DHHGAGE_new = case_when(
     DHHGAGE %in% c(3,4) ~ 1,      #ages 10-19
     DHHGAGE %in% c(5,6,7) ~ 2,    #ages 20-34
@@ -58,23 +58,23 @@ bc_2015_16 <- bc_2015_16 %>%
     DHHGAGE %in% c(11,12,13) ~ 4, #ages 50-64
     DHHGAGE >13 ~ 5,              #ages 65+
     TRUE ~ NA_real_
-  )) %>% 
+  )) %>%
   subset(!is.na(DHHGAGE_new))
 
 bc_2019_20 <- bc_2019_20 %>% rename(DHHGAGE_new = DHHGAGE) #renaming column so function below works
 
-#new data frames 
+#new data frames
 clean_data <- function(x) { #function to clean data frames
-  x %>% 
-    select(GEODGHR4, DHHGAGE_new, DHH_SEX, PHC_005, PHC_010, PHC_020, PHC_035) %>% 
-    rename(service_area = GEODGHR4) %>% 
+  x %>%
+    select(GEODGHR4, DHHGAGE_new, DHH_SEX, PHC_005, PHC_010, PHC_020, PHC_035) %>%
+    rename(service_area = GEODGHR4) %>%
     mutate(health_auth = case_when(
       service_area %in% c(59911, 59912, 59913, 59914) ~ "Interior",
       service_area %in% c(59921, 59922, 59923) ~ "Fraser",
       service_area %in% c(59931, 59932, 59933) ~ "Vancouver Coastal",
       service_area %in% c(59941, 59942, 59943) ~ "Vancouver Island",
       service_area %in% c(59951, 59952, 59953) ~ "Northern"
-    )) %>% 
+    )) %>%
     mutate(health_area = case_when(
       service_area == 59911 ~ "East Kootenay",
       service_area == 59912 ~ "Kootenay Boundary",
@@ -92,7 +92,7 @@ clean_data <- function(x) { #function to clean data frames
       service_area == 59951 ~ "Northwest",
       service_area == 59952 ~ "Northern Interior",
       service_area == 59953 ~ "Northeast",
-    )) %>% 
+    )) %>%
     mutate(
       age_group = case_when(
         DHHGAGE_new == 1 ~ "10-19",
@@ -101,7 +101,7 @@ clean_data <- function(x) { #function to clean data frames
         DHHGAGE_new == 4 ~ "50-64",
         DHHGAGE_new == 5 ~ "65+",
         TRUE ~ "Unknown"
-      )) %>% 
+      )) %>%
     mutate(
       gender = case_when(
         DHH_SEX == 1 ~ "Male",
@@ -115,11 +115,11 @@ bc_2017_18_clean <- clean_data(bc_2017_18)
 bc_2019_20_clean <- clean_data(bc_2019_20)
 
 #consolidating data frames
-bc_2015_16_clean <- bc_2015_16_clean %>% 
+bc_2015_16_clean <- bc_2015_16_clean %>%
   mutate(year = "2015/2016")
-bc_2017_18_clean <- bc_2017_18_clean %>% 
+bc_2017_18_clean <- bc_2017_18_clean %>%
   mutate(year = "2017/2018")
-bc_2019_20_clean <- bc_2019_20_clean %>% 
+bc_2019_20_clean <- bc_2019_20_clean %>%
   mutate(year = "2019/2020")
 
 bc_all <- bind_rows(bc_2015_16_clean, bc_2017_18_clean, bc_2019_20_clean)
@@ -127,7 +127,7 @@ bc_all <- bind_rows(bc_2015_16_clean, bc_2017_18_clean, bc_2019_20_clean)
 #cleaning PHC_005
 phc005_ha <- bc_all %>%
   filter(PHC_005 %in% c(1, 2)) %>%
-  group_by(year, health_auth, gender, age_group) %>% 
+  group_by(year, health_auth, gender, age_group) %>%
   summarize(
     count_yes = sum(PHC_005 == 1, na.rm = TRUE),
     count_no = sum(PHC_005 == 2, na.rm = TRUE),
@@ -137,7 +137,7 @@ phc005_ha <- bc_all %>%
 
 phc005_hsda <- bc_all %>%
   filter(PHC_005 %in% c(1, 2)) %>%
-  group_by(year, health_area, gender, age_group) %>% 
+  group_by(year, health_area, gender, age_group) %>%
   summarize(
     count_yes = sum(PHC_005 == 1, na.rm = TRUE),
     count_no = sum(PHC_005 == 2, na.rm = TRUE),
@@ -149,10 +149,10 @@ phc005_hsda <- bc_all %>%
 phc010_ha <- bc_all %>%
   filter(PHC_005 == 1, PHC_010 %in% 1:6) %>%
   group_by(year, health_auth, gender, age_group, PHC_010) %>%
-  summarize(count = n(), .groups = "drop") 
+  summarize(count = n(), .groups = "drop")
 
 phc010_hsda <- bc_all %>%
-  filter(PHC_005 == 1, PHC_010 %in% 1:6) %>%  
+  filter(PHC_005 == 1, PHC_010 %in% 1:6) %>%
   group_by(year, health_area, gender, age_group, PHC_010) %>%
   summarize(count = n(), .groups = "drop")
 
@@ -181,12 +181,12 @@ phc020_hsda <- bc_all %>%
 phc035_ha <- bc_all %>%
   filter(PHC_005 == 1, PHC_035 %in% 1:6) %>%  # include only answers 1-6 when PHC_005 is 1
   group_by(year, health_auth, gender, age_group, PHC_035) %>%
-  summarize(count = n(), .groups = "drop") 
+  summarize(count = n(), .groups = "drop")
 
 phc035_hsda <- bc_all %>%
-  filter(PHC_005 == 1, PHC_035 %in% 1:6) %>%  
+  filter(PHC_005 == 1, PHC_035 %in% 1:6) %>%
   group_by(year, health_area, gender, age_group, PHC_035) %>%
-  summarize(count = n(), .groups = "drop") 
+  summarize(count = n(), .groups = "drop")
 
 
 #binary PHC_035
@@ -261,14 +261,14 @@ preprocess_measure_data <- function(base_data, geo_level_col) {
           .groups = "drop"
         )
     )
-  
+
   return(all_combos)
 }
 
 # Apply preprocessing to each dataset
 phc005_ha_processed <- preprocess_measure_data(phc005_ha, "health_auth")
 phc005_hsda_processed <- preprocess_measure_data(phc005_hsda, "health_area")
-phc020_ha_processed <- preprocess_measure_data(phc020_ha, "health_auth") 
+phc020_ha_processed <- preprocess_measure_data(phc020_ha, "health_auth")
 phc020_hsda_processed <- preprocess_measure_data(phc020_hsda, "health_area")
 phc035_binary_ha_processed <- preprocess_measure_data(phc035_binary_ha, "health_auth")
 phc035_binary_hsda_processed <- preprocess_measure_data(phc035_binary_hsda, "health_area")
@@ -283,29 +283,29 @@ hsda <- st_transform(health_hsda(), crs = 4326)
 ha <- st_simplify(ha, dTolerance = 300)  # Adjust tolerance to smooth
 hsda <- st_simplify(hsda, dTolerance = 300)
 
-# Create lookup tables for each combination of geo level and measure
+ # Create lookup tables for each combination of geo level and measure
 create_spatial_lookup <- function() {
   # Create ha lookups
   ha_phc005_lookup <- list()
   ha_phc020_lookup <- list()
   ha_phc035_lookup <- list()
-  
+
   # Create hsda lookups
   hsda_phc005_lookup <- list()
   hsda_phc020_lookup <- list()
   hsda_phc035_lookup <- list()
-  
+
   # Populate the lookups for each year, gender, and age group combination
   years <- c("2015/2016", "2017/2018", "2019/2020")
   genders <- c("All", "Male", "Female")
   age_groups <- c("All", "10-19", "20-34", "35-49", "50-64", "65+")
-  
+
   for (y in years) {
     for (g in genders) {
       for (a in age_groups) {
         # Create a unique key for this combination
         key <- paste(y, g, a, sep = "_")
-        
+
         # Filter and join for HA and HSDA variables
         ha_phc005_lookup[[key]] <- ha %>%
           left_join(
@@ -317,19 +317,19 @@ create_spatial_lookup <- function() {
             filter(phc020_ha_processed, year == y, gender == g, age_group == a),
             by = c("HLTH_AUTHORITY_NAME" = "health_auth")
           )
-        
+
         ha_phc035_lookup[[key]] <- ha %>%
           left_join(
             filter(phc035_binary_ha_processed, year == y, gender == g, age_group == a),
             by = c("HLTH_AUTHORITY_NAME" = "health_auth")
           )
-        
+
         hsda_phc005_lookup[[key]] <- hsda %>%
           left_join(
             filter(phc005_hsda_processed, year == y, gender == g, age_group == a),
             by = c("HLTH_SERVICE_DLVR_AREA_NAME" = "health_area")
           )
-        
+
         hsda_phc020_lookup[[key]] <- hsda %>%
           left_join(
             filter(phc020_hsda_processed, year == y, gender == g, age_group == a),
@@ -343,7 +343,7 @@ create_spatial_lookup <- function() {
       }
     }
   }
-  
+
   return(list(
     ha_phc005 = ha_phc005_lookup,
     ha_phc020 = ha_phc020_lookup,
@@ -354,13 +354,19 @@ create_spatial_lookup <- function() {
   ))
 }
 
-# Generate the lookup tables once during startup
+# Generate the lookup tables
 spatial_lookups <- create_spatial_lookup()
 
 
 # Memoize the function
 create_spatial_lookup_memoised <- memoise(create_spatial_lookup)
 spatial_lookups <- create_spatial_lookup_memoised()
+
+# #save into rds file if needed
+# saveRDS(spatial_lookups, "spatial_lookups.rds")
+
+#import rds file
+#spatial_lookups <- readRDS("spatial_lookups.rds")
 
 #create color pallete
 color_comb <- c("#a6cee3", "#1f78b4", "#33a02c","#fb9a99","#fdbf6f","#ff7f00","#b2df8a","#6a3d9a","#d9d9d9","#ffff99","#fdb462","#e0f3f8","#fb8072","#d9d9d9","#b3de69","#f46d43","#4575b4")
@@ -376,12 +382,26 @@ ui <- page_navbar(
   title = "BC CCHS Data",
   header = useShinyjs(),
   nav_panel(title = "Map",
-            tags$style("body {overflow-y: hidden}"), #tag to hide scroll bar
-            page_fluid(
-              div(style = "position: relative; height: 100vh; margin: -16px -28px -35px -28px; padding: 0px;", #css for map div
-                  leafletOutput("map", width = "100%", height = "94%"),
-                  div(id = "map_side_panel",
-                  absolutePanel(fixed = FALSE, top = 25, left = 25, width = 325, draggable = F, #panel with selections
+            page_fillable(
+              tags$style(HTML("
+              #map-container {
+              position: relative;
+              margin: -16px -16px -5px -16px;
+              padding: 0;
+              min-width: 300px;
+              height: 103%;
+              }
+              #map {
+              height: 100%;
+              min-height: 500px;
+              }
+                              ")),
+              div(id = "map-container",
+                  leafletOutput("map", width = "100%", height = "100%")
+                  
+                  ,
+                  absolutePanel(
+                    fixed = FALSE, top = 25, left = 25, width = 325, draggable = F, id = "map_side_panel", #panel with selections
                                 wellPanel(style = "background-color: rgba(241, 242, 243, 0.90);", #makes the absolute panel anti-flash white
                                           selectInput("selected_year", "Year",
                                                       choices = c("2015/2016",
@@ -391,9 +411,9 @@ ui <- page_navbar(
                                           selectInput(
                                             "measure",
                                             label = tagList("Measure",
-                                                            actionLink("measureInfo", label = NULL, 
+                                                            actionLink("measure_info", label = NULL, 
                                                                        icon = icon("info-circle"),
-                                                                       style = "padding: 0; margin-left: 2px; vertical-align: middle;")),
+                                                                       style = "align-items: baseline ")),
                                             choices = c("Appointment Wait Time >3 Days" = "PHC_035",
                                                         "Immediate Care Available" = "PHC_005",
                                                         "Has a Regular Provider" = "PHC_020"
@@ -410,7 +430,7 @@ ui <- page_navbar(
                                                                    "Health Service Delivery Area" = "HSDA"),
                                                        selected = "HA"),
                                           actionButton("hide_button","Hide panel", class = "btn btn-light")
-                                ))
+                                )
                   ),
                   absolutePanel(fixed = FALSE, top = 25, left = 25, id = "show_panel_container", style = "display:none;", #panel that 
                                 actionButton("show_button", "Show panel", class = "btn btn-dark"))
@@ -426,9 +446,9 @@ ui <- page_navbar(
                        wellPanel(
                          selectInput("graph_measure",
                                      label = tagList("Measure",
-                                                     actionLink("measureInfo", label = NULL, 
+                                                     actionLink("measure_info", label = NULL, 
                                                                 icon = icon("info-circle"),
-                                                                style = "padding: 0; margin-left: 2px; vertical-align: middle;")),
+                                                                style = "align-items: baseline")),
                                      choices = c("Appointment Wait Time >3 Days" = "PHC_035",
                                                  "Immediate Care Available" = "PHC_005",
                                                  "Has a Regular Provider" = "PHC_020"),
@@ -492,7 +512,7 @@ server <- function(input, output, session) {
   output$map <- renderLeaflet({
     leaflet(options = leafletOptions(zoomControl = FALSE, zoomSnap = 0.75, zoomDelta = 0.75)) %>%
       addTiles() %>% 
-      setView(lng = -128, lat = 53.00, zoom = 5.5) %>%
+      setView(lng = -128, lat = 53.00, zoom = 5.6) %>%
       setMaxBounds(lng1 = -180, lat1 = 10, lng2 = -65, lat2 = 80) %>% 
       htmlwidgets::onRender("
       function(el, x) {
@@ -502,7 +522,7 @@ server <- function(input, output, session) {
         // Function to recenter the map.
         function recenter() {
           map.invalidateSize();  // Refresh map dimensions.
-          map.setView([53.00, -128], 5.5);  // Re-center the map.
+          map.setView([53.00, -128], 5.6);  // Re-center the map.
         }
         // Listen for window resize events.
         window.addEventListener('resize', recenter);
@@ -640,9 +660,9 @@ server <- function(input, output, session) {
         "<strong>", region_name, "</strong><br>",
         "Measure: ", measure_name, "<br>",
         "Year: ", input$selected_year, "<br>",
-        "Value: ", round(row$percent * 100, 1), "%<br>",
-        "Yes count: ", row$count_yes, "<br>",
-        "No count: ", row$count_no, "<br>",
+        "Percent: ", round(row$percent * 100, 1), "%<br>",
+        "Yes, count: ", row$count_yes, "<br>",
+        "No, count: ", row$count_no, "<br>",
         "Total responses: ", row$count_yes + row$count_no
       )
       
@@ -830,9 +850,9 @@ server <- function(input, output, session) {
                 type = "bar",
                 hoverinfo = "text",
                 text = ~paste(get(plot_data$geo_col), "<br>Year:", year, 
-                              "<br>Value:", percent_display, "%",
-                              "<br>Yes Count:", count_yes,
-                              "<br>No Count:", count_no)) %>%
+                              "<br>Percent:", percent_display, "%",
+                              "<br>Yes, count:", count_yes,
+                              "<br>No, count:", count_no)) %>%
         layout(
           title = paste0(measure_title, " (Gender: ", input$graph_gender, ", Age: ", input$graph_age, ")"),
           xaxis = list(title = ifelse(input$graph_geo_level == "HA", "Health Authority", "Health Service Delivery Area"),
@@ -852,9 +872,9 @@ server <- function(input, output, session) {
                 type = "bar",
                 hoverinfo = "text",
                 text = ~paste(get(plot_data$geo_col), "<br>Year:", year, 
-                              "<br>Value:", percent_display, "%",
-                              "<br>Yes Count:", count_yes,
-                              "<br>No Count:", count_no)) %>%
+                              "<br>Percent:", percent_display, "%",
+                              "<br>Yes, count:", count_yes,
+                              "<br>No, count:", count_no)) %>%
         layout(
           title = paste0(measure_title, " (Gender: ", input$graph_gender, ", Age: ", input$graph_age, ")"),
           xaxis = list(title = ifelse(input$graph_geo_level == "HA", "Health Authority", "Health Service Delivery Area"),
@@ -872,13 +892,13 @@ server <- function(input, output, session) {
   #modal (pop-up) windows####
   
   # Popup for measure descriptions in the absolute panel
-  observeEvent(input$measureInfo, {
+  observeEvent(input$measure_info, {
     showModal(modalDialog(
       title = "Measure Descriptions",
       HTML("
         <strong>Appointment Wait Time >3 Days:</strong> If a respondent requires immediate care for a minor health problem, is the wait time for an appointment longer than 3 days. <br><br>
-        <strong>Immediate Care:</strong> When respondents require immediate care for a minor health problem, do they have a place to go to. <br><br>
-        <strong>Regular Provider:</strong> Indicates whether respondents have a regular health care provider. <br><br>
+        <strong>Immediate Care:</strong> When respondents require immediate care for a minor health problem, do they have a place to go to? If they do, what sort of place is it? <br><br>
+        <strong>Regular Provider:</strong> Indicates whether respondents have a regular health care provider.
         <br><br> <i>Minor health problem: fever, headache, a sprained ankle, vomiting or an unexplained rash. </i>
       "),
       easyClose = TRUE,
@@ -888,22 +908,26 @@ server <- function(input, output, session) {
   
   #information panel
   info_modal <- modalDialog(title = "Understanding Healthcare Access in British Columbia",
-                            HTML("<h5> Current State of Care </h5>
-                            <p>As the first point of contact with British Columbia's health care system, primary care plays a vital role in patient outcomes. Yet timely access to these services continues to be a significant concern for residents throughout the province. Many British Columbians face extended wait times for appointments, struggle to establish relationships with regular healthcare providers, or lack knowledge of where to seek immediate care when needed. These fundamental aspects of healthcare access vary significantly across regions, demographics, and service types, creating potential inequities in our healthcare system.</p>
+                            HTML("
+                            <h5> Current State of Care </h5>
+                            <p>Primary care is a key first point of contact with British Columbia's health care system and plays a vital role in patient outcomes. Yet timely access to these services continues to be a significant concern for residents throughout the province. Many British Columbians face extended wait times for appointments, struggle to establish relationships with regular healthcare providers, or lack knowledge of where to seek immediate care when needed. These fundamental aspects of healthcare access vary significantly across regions, demographics, and service types, creating potential inequities in our healthcare system.</p>
                             <h5>About This Dashboard</h5>
                             <p>This interactive tool presents data from the Canadian Community Health Survey, offering a comprehensive view of healthcare access patterns throughout the province. The dashboard visualizes key indicators of primary care accessibility, including appointment wait times, access to regular healthcare providers, and availability of immediate care options. By understanding these patterns, we aim to:</p>
                             <ul>
                             <li>Identify underserved regions and populations</li>
-                            <li>Recognize successful models that could be expanded</li>
                             <li>Support targeted improvements in healthcare delivery</li>
                             <li>Inform resource allocation and policy development</li>
                             </ul>
                             <h5>Data Source and Methodology</h5>
-                            <p>The data presented comes from the Canadian Community Health Survey (CCHS) cycles from 2015/2016, 2017/2018, and 2019/2020. The CCHS is a cross-sectional survey that collects information related to health status, healthcare utilization, and health determinants for the Canadian population. Our analyses focus specifically on British Columbia respondents and questions related to appointment waiting periods, regular provider relationships, and access to immediate care facilities.</p>
-                            <h5>Privacy and Data</h5>
-                            <p>All data is aggregated to protect individual privacy. For the 2019/2020 cycle, no inforation was collected from the Northeast health service delivery area.</p>
-                            <i>Developed by Kenneth Zhang, Master of Public Health.</i>
-                                 "
+                            <p>The data presented comes from the Canadian Community Health Survey (CCHS) cycles from 2015/2016, 2017/2018, and 2019/2020<sup>1</sup>. The CCHS is a cross-sectional survey that collects information related to health status, healthcare utilization, and health determinants for the Canadian population. For the 2019/2020 cycle, no data was collected from the Northeast health service delivery area. Our analyses focus specifically on British Columbia respondents and questions related to appointment waiting periods, regular provider relationships, and access to immediate care facilities. </p>
+                            <h6>References</h6>
+                            <ol style = 'font-size: 15px;'>
+                            <li>Statistics Canada.<i> Canadian Community Health Survey: Public Use Microdata File, 2015/2016, 2017/2018, and 2019/2020</i>. Ottawa, ON. doi:<a href=' https://doi.org/10.25318/82m0013x-eng'> https://doi.org/10.25318/82m0013x-eng</a> </li>
+                            </ol>
+                            <br>
+                            <i>Developed by Kenneth Zhang, Master of Public Health.<br>
+                            Contact:<a href ='mailto:kkzhang@sfu.ca'> kkzhang@sfu.ca</a></i>
+                            "
                             ),
                             footer = modalButton("Close"),
                             size = "l",
