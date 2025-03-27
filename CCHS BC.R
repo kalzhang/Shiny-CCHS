@@ -12,6 +12,7 @@ library(bslib)
 library(plotly)
 library(RColorBrewer)
 library(shinyjs)
+library(leaflet.extras)
 
 # Pre-processing####
 #data_2019_20 <- read.csv("cchs-2019-2020.csv", numerals = "warn.loss")
@@ -362,8 +363,8 @@ spatial_lookups <- create_spatial_lookup()
 create_spatial_lookup_memoised <- memoise(create_spatial_lookup)
 spatial_lookups <- create_spatial_lookup_memoised()
 
-# # #save into rds file if needed
-#  saveRDS(spatial_lookups, "spatial_lookups.rds")
+# #save into rds file if needed
+#   saveRDS(spatial_lookups, "spatial_lookups.rds")
 
 #import rds file
 #spatial_lookups <- readRDS("spatial_lookups.rds")
@@ -380,7 +381,29 @@ color_comb <- c("#a6cee3", "#1f78b4", "#33a02c","#fb9a99","#fdbf6f","#ff7f00","#
 ui <- page_navbar(
   theme = bs_theme(version = 5, bootswatch = "minty", primary = "#808080"), #theme colors
   title = "Healthcare Access Trends in British Columbia",
-  header = useShinyjs(),
+  header = tagList(useShinyjs(),
+                    tags$head(
+                      tags$style(HTML("
+                      .leaflet-control-gps a{ /*changes gps icon size */
+                      width: 26px !important; 
+                      height: 26px !important;
+                      }
+                      .leaflet-bottom.leaflet-left .leaflet-control { /* makes the bottom left a flex column to reorganize the icons (also reduce margin to fix spacing) */
+                      margin-top: 0 !important; }
+                      .leaflet-bottom.leaflet-left {
+                      display: flex;
+                      flex-direction: column;
+                      gap: 10px;
+                      align-items: flex-start !important;
+                      }
+                      .leaflet-control-search { order: 1 !important; } 
+                      .leaflet-control-gps    { order: 2 !important; } 
+                      .leaflet-control-zoom   { order: 3 !important; } 
+                                      ")
+                                 )
+                      )
+                   ),
+  nav_spacer(),
   nav_panel(title = "Map",
             page_fillable(
               tags$style(HTML("
@@ -388,12 +411,13 @@ ui <- page_navbar(
               position: relative;
               margin: -16px -16px -5px -16px;
               padding: 0;
-              min-width: 300px;
-              height: 103%;
+              min-width: 500px;
+              height: 103.25%;
               }
               #map {
               height: 100%;
-              min-height: 500px;
+              min-width: 500px;
+              min-height: 720px;
               }
                               ")),
               div(id = "map-container",
@@ -432,7 +456,7 @@ ui <- page_navbar(
                                           actionButton("hide_button","Hide panel", class = "btn btn-light")
                                 )
                   ),
-                  absolutePanel(fixed = FALSE, top = 25, left = 25, id = "show_panel_container", style = "display:none;", #panel that 
+                  absolutePanel(fixed = FALSE, top = 25, left = 25, id = "show_panel_container", style = "display:none;", #panel for 'show' button
                                 actionButton("show_button", "Show panel", class = "btn btn-dark"))
               )
             )
@@ -511,10 +535,23 @@ server <- function(input, output, session) {
   
   
   output$map <- renderLeaflet({
-    leaflet(options = leafletOptions(zoomControl = FALSE, zoomSnap = 0.75, zoomDelta = 0.75)) %>%
-      addTiles() %>%
+    leaflet(options = leafletOptions(zoomControl = FALSE, zoomSnap = 0.75, zoomDelta = 0.75, minZoom = 4.5)) %>%
+      addTiles(options = tileOptions(minZoom = 4.5)) %>%
       setView(lng = -128, lat = 53.00, zoom = 5.6) %>%
       setMaxBounds(lng1 = -180, lat1 = 10, lng2 = -65, lat2 = 80) %>%
+      addSearchOSM(options = searchOptions( #search address
+        position = "bottomleft",      
+        autoCollapse = TRUE,     
+        minLength = 2,           # Minimum characters before searching
+        zoom = 12                
+      )) %>%
+      addControlGPS(options = gpsOptions(
+        position = "bottomleft",     
+        setView = TRUE,          # Move map view to user location when found
+        autoCenter = TRUE,       
+        maxZoom = 12,            
+        activate = FALSE         
+      )) %>% 
       htmlwidgets::onRender("
       function(el, x) {
         var map = this;
@@ -530,7 +567,7 @@ server <- function(input, output, session) {
       }
     ")
   })
-  
+
   # Update map
   observe({
     data <- pop_data()
