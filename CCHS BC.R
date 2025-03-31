@@ -284,7 +284,7 @@ hsda <- st_transform(health_hsda(), crs = 4326)
 ha <- st_simplify(ha, dTolerance = 300)  # Adjust tolerance to smooth
 hsda <- st_simplify(hsda, dTolerance = 300)
 
- # Create lookup tables for each combination of geo level and measure
+#Create lookup tables for each combination of geo level and measure
 create_spatial_lookup <- function() {
   # Create ha lookups
   ha_phc005_lookup <- list()
@@ -363,7 +363,7 @@ spatial_lookups <- create_spatial_lookup()
 create_spatial_lookup_memoised <- memoise(create_spatial_lookup)
 spatial_lookups <- create_spatial_lookup_memoised()
 
-# #save into rds file if needed
+ #save into rds file if needed
 #   saveRDS(spatial_lookups, "spatial_lookups.rds")
 
 #import rds file
@@ -411,14 +411,17 @@ ui <- page_navbar(
               position: relative;
               margin: -16px -16px -5px -16px;
               padding: 0;
-              min-width: 500px;
+              min-width: 600px;
               height: 103.25%;
               }
               #map {
               height: 100%;
-              min-width: 500px;
-              min-height: 720px;
+              min-width: 600px;
+              min-height: 800px;
               }
+              body {
+              min-width: 600px
+              } 
                               ")),
               div(id = "map-container",
                   leafletOutput("map", width = "100%", height = "100%")
