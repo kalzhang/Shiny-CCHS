@@ -9,6 +9,7 @@ library(viridisLite)
 library(shinycssloaders)
 library(memoise)
 library(bslib)
+library(bsicons)
 library(plotly)
 library(RColorBrewer)
 library(shinyjs)
@@ -496,7 +497,16 @@ ui <- page_navbar(
                        )
                 ),
                 column(9,
-                       card(withSpinner(plotlyOutput("bar_plot", height = "600px")))
+                       card(withSpinner(plotlyOutput("bar_plot", height = "600px"))),
+                       card_footer(
+                       layout_column_wrap(
+                       width = 1/4,
+                       uiOutput("avg_value_box"),
+                       uiOutput("trend_value_box"),
+                       uiOutput("max_value_box"),
+                       uiOutput("min_value_box")
+                       ) 
+                       )      
                 )
               )
             )
@@ -962,6 +972,148 @@ server <- function(input, output, session) {
     }
   })
   
+  ##Value Boxes ####
+  
+  # average value box
+  output$avg_value_box <- renderUI({
+    # Reuse the same reactive data as the bar plot
+    plot_info <- bar_data()
+    req(plot_info$data, nrow(plot_info$data) > 0) #makes sure data is not 0
+    avg_percent <- mean(plot_info$data$percent_display, na.rm = TRUE) #calc average
+    # Check if the calculation resulted in a valid number.
+    if (is.nan(avg_percent)) {
+      value_box(
+        title = "Average",
+        value = "Not Available",
+        showcase = bs_icon("x-circle"), # Icon indicating an issue or no data
+        theme = "secondary" # Use a muted theme
+      )
+    } else { #show valid response
+      
+      geo_level_name <- if (input$graph_geo_level == "HA") { #create geo level name
+        "Health Authorities"
+      } else {
+        "Health Service Delivery Areas"
+      }
+      value_box(
+        title = "Average across " %>% paste0(geo_level_name),
+        value = paste0(round(avg_percent, 1), "%"), 
+        showcase = bs_icon("graph-up"), 
+        theme = "primary",
+        min_height = "165px"
+      )
+    }
+  })
+  
+  # Change from past years
+  output$trend_value_box <- renderUI({
+    plot_info <- bar_data()
+    req(plot_info$data, nrow(plot_info$data) > 0)
+    
+    # Calculate average for the first and last year
+    avg_first_year <- plot_info$data %>%
+      filter(year == "2015/2016") %>%
+      summarise(avg = mean(percent_display, na.rm = TRUE)) %>%
+      pull(avg)
+    
+    avg_last_year <- plot_info$data %>%
+      filter(year == "2019/2020") %>%
+      summarise(avg = mean(percent_display, na.rm = TRUE)) %>%
+      pull(avg)
+    
+    # Ensure we have data for both years to compare
+    if (length(avg_first_year) == 0 || length(avg_last_year) == 0 || is.na(avg_first_year) || is.na(avg_last_year)) {
+      return(NULL) # Don't show the box if we can't calculate a trend
+    }
+    
+    # Calculate absolute change in percentage points
+    change <- avg_last_year - avg_first_year
+    
+    # --- Dynamic Theming and Icons ---
+    # For some measures (like Wait Time), a decrease is good!
+    is_good_measure <- input$graph_measure != "PHC_035" # Assume higher is better, except for wait times
+    
+    if (round(change, 1) == 0) {
+      trend_icon <- bs_icon("arrow-left-right", size = "2.5rem")
+      trend_theme <- "dark" # Neutral grey theme
+    } else if (change > 0) {
+      trend_icon <- bs_icon("arrow-up", size = "2.5rem")
+      trend_theme <- if (is_good_measure) "success" else "danger"
+    } else { # change < 0
+      trend_icon <- bs_icon("arrow-down", size = "2.5rem")
+      trend_theme <- if (is_good_measure) "danger" else "success"
+    }
+    
+    
+    value_box(
+      title = "Average change from 2015/16 to 2019/20",
+      value = paste0(sprintf("%+.1f", change), " p.p."), # "p.p." = percentage points
+      showcase = trend_icon,
+      theme = trend_theme,
+      p(paste("From", round(avg_first_year, 1), "% to", round(avg_last_year, 1), "%"))
+    )
+  })
+  
+  
+  #min value box
+  output$min_value_box <- renderUI({
+    
+    plot_info <- bar_data()
+    
+    req(plot_info$data, nrow(plot_info$data) > 0)
+    
+    min_row <- plot_info$data[which.min(plot_info$data$percent_display), ]
+    
+    grouping_var <- if (input$x_toggle == "Geographic Boundaries") {
+      plot_info$geo_col
+    } else {
+      "year"
+    }
+    
+    
+    tagList(
+      value_box(
+        title = "Lowest Average",
+        value = paste0(min_row$percent_display, "%"),
+        showcase = bs_icon("arrow-down-circle"),
+        theme = "danger", # "danger" theme for low points
+        min_height = "165px",
+        p(paste("in", min_row[[grouping_var]]))
+      )
+    )
+  })
+  
+  #max value box
+  output$max_value_box <- renderUI({
+      
+      plot_info <- bar_data()
+      
+      req(plot_info$data, nrow(plot_info$data) > 0)
+      
+      max_row <- plot_info$data[which.max(plot_info$data$percent_display), ]
+      
+      grouping_var <- if (input$x_toggle == "Geographic Boundaries") {
+        plot_info$geo_col
+      } else {
+        "year"
+      }
+    
+    if (nrow(max_row) == 0 || nrow(max_row) == 0) return(NULL)
+    
+    tagList(
+      value_box(
+        title = "Highest Average",
+        value = paste0(max_row$percent_display, "%"),
+        showcase = bs_icon("arrow-up-circle"),
+        theme = "success", # "success" theme for high points
+        min_height = "165px",
+        p(paste("in", max_row[[grouping_var]]))
+      )
+    )
+  })
+    
+  
+  
   #modal (pop-up) windows####
   
   # Popup for measure descriptions in the absolute panel
@@ -1004,7 +1156,9 @@ server <- function(input, output, session) {
                             ),
                             footer = modalButton("Close"),
                             size = "l",
-                            easyClose = T)
+                            easyClose = T,
+                            fade = T
+                            )
   
   showModal(info_modal) #opens up the window on start-up
   
