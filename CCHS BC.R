@@ -996,9 +996,9 @@ server <- function(input, output, session) {
         "Health Service Delivery Areas"
       }
       value_box(
-        title = "Average across " %>% paste0(geo_level_name),
+        title = "Average across all " %>% HTML("<br>", paste0(geo_level_name)),
         value = paste0(round(avg_percent, 1), "%"), 
-        showcase = bs_icon("graph-up"), 
+        showcase = bs_icon("bar-chart-fill"), 
         theme = "primary",
         min_height = "165px"
       )
@@ -1029,19 +1029,17 @@ server <- function(input, output, session) {
     # Calculate absolute change in percentage points
     change <- avg_last_year - avg_first_year
     
-    # --- Dynamic Theming and Icons ---
-    # For some measures (like Wait Time), a decrease is good!
     is_good_measure <- input$graph_measure != "PHC_035" # Assume higher is better, except for wait times
     
     if (round(change, 1) == 0) {
-      trend_icon <- bs_icon("arrow-left-right", size = "2.5rem")
-      trend_theme <- "dark" # Neutral grey theme
+      trend_icon <- bs_icon("dash-square-fill", class = "text-primary")
+      trend_theme <- value_box_theme(bg = "#F2F2F2")
     } else if (change > 0) {
-      trend_icon <- bs_icon("arrow-up", size = "2.5rem")
-      trend_theme <- if (is_good_measure) "success" else "danger"
+      trend_icon <- if (is_good_measure) bs_icon("graph-up-arrow", class = "text-success") else bs_icon("graph-up-arrow", class = "text-danger")
+      trend_theme <- if (is_good_measure) value_box_theme(bg = "#e2f6ef") else value_box_theme(bg = "#FFF1EE")
     } else { # change < 0
-      trend_icon <- bs_icon("arrow-down", size = "2.5rem")
-      trend_theme <- if (is_good_measure) "danger" else "success"
+      trend_icon <- if (is_good_measure) bs_icon("graph-down-arrow", class = "text-danger") else bs_icon("graph-down-arrow", class = "text-success")
+      trend_theme <- if (is_good_measure) value_box_theme(bg = "#FFF1EE") else value_box_theme(bg = "#e2f6ef")
     }
     
     
@@ -1055,63 +1053,74 @@ server <- function(input, output, session) {
   })
   
   
+
+    
   #min value box
   output$min_value_box <- renderUI({
-    
     plot_info <- bar_data()
-    
     req(plot_info$data, nrow(plot_info$data) > 0)
     
-    min_row <- plot_info$data[which.min(plot_info$data$percent_display), ]
+    # Calculate the average percentage for each geographic area across all years
+    avg_data <- plot_info$data %>%
+      group_by(!!sym(plot_info$geo_col)) %>%
+      summarise(avg_percent_display = mean(percent_display, na.rm = TRUE), .groups = "drop")
     
-    grouping_var <- if (input$x_toggle == "Geographic Boundaries") {
-      plot_info$geo_col
-    } else {
-      "year"
-    }
+    # Find the geographic area with the lowest average
+    min_row <- avg_data %>%
+      slice_min(order_by = avg_percent_display, n = 1)
     
+    req(nrow(min_row) > 0)
+    
+    is_good_measure <- input$graph_measure != "PHC_035" # Assume higher is better, except for wait times
+    
+    trend_icon <- if (is_good_measure) bs_icon("arrow-down-circle", class = "text-danger") else bs_icon("arrow-down-circle", class = "text-success")
+    trend_theme <- if (is_good_measure) value_box_theme(bg = "#FFF1EE") else value_box_theme(bg = "#e2f6ef")
     
     tagList(
       value_box(
-        title = "Lowest Average",
-        value = paste0(min_row$percent_display, "%"),
-        showcase = bs_icon("arrow-down-circle"),
-        theme = "danger", # "danger" theme for low points
+        title = HTML("Lowest average<br> (across all years)"),
+        value = paste0(round(min_row$avg_percent_display, 1), "%"),
+        showcase = trend_icon,
+        theme = trend_theme,
         min_height = "165px",
-        p(paste("in", min_row[[grouping_var]]))
+        p(paste("in", min_row[[plot_info$geo_col]])) # Display the name of the area
       )
     )
   })
   
   #max value box
   output$max_value_box <- renderUI({
-      
-      plot_info <- bar_data()
-      
-      req(plot_info$data, nrow(plot_info$data) > 0)
-      
-      max_row <- plot_info$data[which.max(plot_info$data$percent_display), ]
-      
-      grouping_var <- if (input$x_toggle == "Geographic Boundaries") {
-        plot_info$geo_col
-      } else {
-        "year"
-      }
+    plot_info <- bar_data()
+    req(plot_info$data, nrow(plot_info$data) > 0)
     
-    if (nrow(max_row) == 0 || nrow(max_row) == 0) return(NULL)
+    # Calculate the average percentage for each geographic area across all years
+    avg_data <- plot_info$data %>%
+      group_by(!!sym(plot_info$geo_col)) %>%
+      summarise(avg_percent_display = mean(percent_display, na.rm = TRUE), .groups = "drop")
+    
+    # Find the geographic area with the highest average
+    max_row <- avg_data %>%
+      slice_max(order_by = avg_percent_display, n = 1)
+    
+    req(nrow(max_row) > 0)
+    
+    is_good_measure <- input$graph_measure != "PHC_035" # Assume higher is better, except for wait times
+    
+    trend_icon <- if (is_good_measure) bs_icon("arrow-up-circle", class = "text-success") else bs_icon("arrow-up-circle", class = "text-danger")
+    trend_theme <- if (is_good_measure) value_box_theme(bg = "#e2f6ef") else value_box_theme(bg = "#FFF1EE")
+    
     
     tagList(
       value_box(
-        title = "Highest Average",
-        value = paste0(max_row$percent_display, "%"),
-        showcase = bs_icon("arrow-up-circle"),
-        theme = "success", # "success" theme for high points
+        title = HTML("Highest average<br> (across all years)"),
+        value = paste0(round(max_row$avg_percent_display, 1), "%"),
+        showcase = trend_icon,
+        theme = trend_theme,
         min_height = "165px",
-        p(paste("in", max_row[[grouping_var]]))
+        p(paste("in", max_row[[plot_info$geo_col]])) # Display the name of the area
       )
     )
   })
-    
   
   
   #modal (pop-up) windows####
@@ -1151,7 +1160,8 @@ server <- function(input, output, session) {
                             </ol>
                             <br>
                             <i>Developed by Kenneth Zhang, Master of Public Health.<br>
-                            Contact: <a href ='mailto:kkzhang@sfu.ca'>kkzhang@sfu.ca</a></i>
+                            Contact: <a href ='mailto:kkzhang@sfu.ca'>kkzhang@sfu.ca</a><br>
+                            <a href='https://github.com/kalzhang/Shiny-CCHS' target='_blank'><i class='fa-brands fa-github'></i>View Source Code on GitHub</a></i>
                             "
                             ),
                             footer = modalButton("Close"),
