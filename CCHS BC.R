@@ -14,6 +14,7 @@ library(plotly)
 library(RColorBrewer)
 library(shinyjs)
 library(leaflet.extras)
+library(fontawesome)
 
 # Pre-processing####
 #data_2019_20 <- read.csv("cchs-2019-2020.csv", numerals = "warn.loss")
@@ -380,7 +381,7 @@ color_comb <- c("#a6cee3", "#1f78b4", "#33a02c","#fb9a99","#fdbf6f","#ff7f00","#
 
 # Shiny app####
 ui <- page_navbar(
-  theme = bs_theme(version = 5, bootswatch = "minty", primary = "#808080"), #theme colors
+  theme = bs_theme(bootswatch = "minty", primary = "#384c6c", "navbar-bg" = "#384c6c"), #theme colors
   title = "Healthcare Access Trends in British Columbia",
   header = tagList(useShinyjs(),
                     tags$head(
@@ -922,9 +923,9 @@ server <- function(input, output, session) {
     )
     
     
-    # Create a plotly graph; if statement to choose plot to show
+    # Create a plotly graph
     if (input$x_toggle == "Geographic Boundaries"){
-      
+      # Create a bar plot with geographic boundaries on the x-axis
       p <- plot_data$data %>%
         plot_ly(x = ~get(plot_data$geo_col), 
                 y = ~percent_display, 
@@ -947,7 +948,8 @@ server <- function(input, output, session) {
         )
     }
     else {
-      p <- plot_data$data %>%
+      # Create a bar plot with year on the x-axis
+      p <- plot_data$data %>% 
         plot_ly(x = ~year, 
                 y = ~percent_display, 
                 color = ~get(plot_data$geo_col), 
@@ -976,7 +978,7 @@ server <- function(input, output, session) {
   
   # average value box
   output$avg_value_box <- renderUI({
-    # Reuse the same reactive data as the bar plot
+    # Use bar plot data
     plot_info <- bar_data()
     req(plot_info$data, nrow(plot_info$data) > 0) #makes sure data is not 0
     avg_percent <- mean(plot_info$data$percent_display, na.rm = TRUE) #calc average
@@ -985,8 +987,8 @@ server <- function(input, output, session) {
       value_box(
         title = "Average",
         value = "Not Available",
-        showcase = bs_icon("x-circle"), # Icon indicating an issue or no data
-        theme = "secondary" # Use a muted theme
+        showcase = bs_icon("x-circle"), 
+        theme = "secondary"
       )
     } else { #show valid response
       
@@ -1031,6 +1033,7 @@ server <- function(input, output, session) {
     
     is_good_measure <- input$graph_measure != "PHC_035" # Higher is better, except for wait times
     
+    # Determine the trend icon and theme based on the change
     if (round(change, 1) == 0) {
       trend_icon <- bs_icon("dash-square", class = "text-primary")
       trend_theme <- "light"
@@ -1054,10 +1057,13 @@ server <- function(input, output, session) {
     
     value_box(
       title = HTML("Trend across ", geo_level_name_plural()), 
-      value = paste0(sprintf("%+.1f", change), " p.p."), # "p.p." = percentage points
+      value = paste0(sprintf("%+.1f", change), " p.p."), # p.p. is percentage points
       showcase = trend_icon,
       theme = trend_theme,
-      p(paste0("From ", round(avg_first_year, 1), "% (2015/16) to ", round(avg_last_year, 1), "% (2019/20)"))
+      p(paste0("From ", round(avg_first_year, 1), "% to ", round(avg_last_year, 1), "%"),
+        br(),
+        "(2015/16 to 2019/2020)"
+        )
     )
   })
   
@@ -1069,16 +1075,19 @@ server <- function(input, output, session) {
     plot_info <- bar_data()
     req(plot_info$data, nrow(plot_info$data) > 0)
     
-    # Calculate the average percentage for each geographic area across all years
+    # Calculate average percentage for each geographic area across all years
     avg_data <- plot_info$data %>%
       group_by(!!sym(plot_info$geo_col)) %>%
       summarise(avg_percent_display = mean(percent_display, na.rm = TRUE), .groups = "drop")
     
-    # Find the geographic area with the lowest average
+    # Find  area with lowest average
     min_row <- avg_data %>%
       slice_min(order_by = avg_percent_display, n = 1)
     
     req(nrow(min_row) > 0)
+    
+    min_value <- min_row$avg_percent_display[1] #finds min value for just one area
+    min_areas <- paste(min_row[[plot_info$geo_col]], collapse = ", ") # combine names when values are tied
     
     is_good_measure <- input$graph_measure != "PHC_035" # Assume higher is better, except for wait times
     
@@ -1088,11 +1097,11 @@ server <- function(input, output, session) {
     tagList(
       value_box(
         title = HTML("Lowest average<br> (across all years)"),
-        value = paste0(round(min_row$avg_percent_display, 1), "%"),
+        value = paste0(round(min_value, 1), "%"),
         showcase = trend_icon,
         theme = trend_theme,
         min_height = "185px",
-        p(paste("in", min_row[[plot_info$geo_col]])) # Display the name of the area
+        p(paste("in", min_areas)) 
       )
     )
   })
@@ -1113,6 +1122,10 @@ server <- function(input, output, session) {
     
     req(nrow(max_row) > 0)
     
+    max_value <- max_row$avg_percent_display[1]
+    
+    max_areas <- paste(max_row[[plot_info$geo_col]], collapse = ", ") 
+    
     is_good_measure <- input$graph_measure != "PHC_035" # Assume higher is better, except for wait times
     
     trend_icon <- if (is_good_measure) bs_icon("arrow-up-circle", class = "text-success") else bs_icon("arrow-up-circle", class = "text-danger")
@@ -1122,11 +1135,11 @@ server <- function(input, output, session) {
     tagList(
       value_box(
         title = HTML("Highest average<br> (across all years)"),
-        value = paste0(round(max_row$avg_percent_display, 1), "%"),
+        value = paste0(round(max_value, 1), "%"),
         showcase = trend_icon,
         theme = trend_theme,
         min_height = "185px",
-        p(paste("in", max_row[[plot_info$geo_col]])) # Display the name of the area
+        p(paste("in", max_areas)) # Display the name of the area
       )
     )
   })
