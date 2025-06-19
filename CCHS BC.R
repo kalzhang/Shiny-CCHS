@@ -503,8 +503,8 @@ ui <- page_navbar(
                        width = 1/4,
                        uiOutput("avg_value_box"),
                        uiOutput("trend_value_box"),
-                       uiOutput("max_value_box"),
-                       uiOutput("min_value_box")
+                       uiOutput("min_value_box"),
+                       uiOutput("max_value_box")
                        ) 
                        )      
                 )
@@ -998,9 +998,9 @@ server <- function(input, output, session) {
       value_box(
         title = "Average across all " %>% HTML("<br>", paste0(geo_level_name)),
         value = paste0(round(avg_percent, 1), "%"), 
-        showcase = bs_icon("bar-chart-fill"), 
-        theme = "primary",
-        min_height = "165px"
+        showcase = bs_icon("bar-chart-fill", class = "text-info"),
+        theme = value_box_theme(bg = "#ecf5fd"),
+        min_height = "185px"
       )
     }
   })
@@ -1029,11 +1029,11 @@ server <- function(input, output, session) {
     # Calculate absolute change in percentage points
     change <- avg_last_year - avg_first_year
     
-    is_good_measure <- input$graph_measure != "PHC_035" # Assume higher is better, except for wait times
+    is_good_measure <- input$graph_measure != "PHC_035" # Higher is better, except for wait times
     
     if (round(change, 1) == 0) {
-      trend_icon <- bs_icon("dash-square-fill", class = "text-primary")
-      trend_theme <- value_box_theme(bg = "#F2F2F2")
+      trend_icon <- bs_icon("dash-square", class = "text-primary")
+      trend_theme <- "light"
     } else if (change > 0) {
       trend_icon <- if (is_good_measure) bs_icon("graph-up-arrow", class = "text-success") else bs_icon("graph-up-arrow", class = "text-danger")
       trend_theme <- if (is_good_measure) value_box_theme(bg = "#e2f6ef") else value_box_theme(bg = "#FFF1EE")
@@ -1042,13 +1042,22 @@ server <- function(input, output, session) {
       trend_theme <- if (is_good_measure) value_box_theme(bg = "#FFF1EE") else value_box_theme(bg = "#e2f6ef")
     }
     
+    geo_level_name_plural <- reactive({
+      req(input$graph_geo_level)
+      if (input$graph_geo_level == "HA") {
+        "Health Authorities"
+      } else {
+        "Health Service Delivery Areas"
+      }
+    })
+    
     
     value_box(
-      title = "Average change from 2015/16 to 2019/20",
+      title = HTML("Trend across ", geo_level_name_plural()), 
       value = paste0(sprintf("%+.1f", change), " p.p."), # "p.p." = percentage points
       showcase = trend_icon,
       theme = trend_theme,
-      p(paste("From", round(avg_first_year, 1), "% to", round(avg_last_year, 1), "%"))
+      p(paste0("From ", round(avg_first_year, 1), "% (2015/16) to ", round(avg_last_year, 1), "% (2019/20)"))
     )
   })
   
@@ -1082,7 +1091,7 @@ server <- function(input, output, session) {
         value = paste0(round(min_row$avg_percent_display, 1), "%"),
         showcase = trend_icon,
         theme = trend_theme,
-        min_height = "165px",
+        min_height = "185px",
         p(paste("in", min_row[[plot_info$geo_col]])) # Display the name of the area
       )
     )
@@ -1116,7 +1125,7 @@ server <- function(input, output, session) {
         value = paste0(round(max_row$avg_percent_display, 1), "%"),
         showcase = trend_icon,
         theme = trend_theme,
-        min_height = "165px",
+        min_height = "185px",
         p(paste("in", max_row[[plot_info$geo_col]])) # Display the name of the area
       )
     )
