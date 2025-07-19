@@ -264,7 +264,7 @@ preprocess_measure_data <- function(base_data, geo_level_col) {
           .groups = "drop"
         )
     )
-
+  
   return(all_combos)
 }
 
@@ -292,23 +292,23 @@ create_spatial_lookup <- function() {
   ha_phc005_lookup <- list()
   ha_phc020_lookup <- list()
   ha_phc035_lookup <- list()
-
+  
   # Create hsda lookups
   hsda_phc005_lookup <- list()
   hsda_phc020_lookup <- list()
   hsda_phc035_lookup <- list()
-
+  
   # Populate the lookups for each year, gender, and age group combination
   years <- c("2015/2016", "2017/2018", "2019/2020")
   genders <- c("All", "Male", "Female")
   age_groups <- c("All", "10-19", "20-34", "35-49", "50-64", "65+")
-
+  
   for (y in years) {
     for (g in genders) {
       for (a in age_groups) {
         # Create a unique key for this combination
         key <- paste(y, g, a, sep = "_")
-
+        
         # Filter and join for HA and HSDA variables
         ha_phc005_lookup[[key]] <- ha %>%
           left_join(
@@ -320,19 +320,19 @@ create_spatial_lookup <- function() {
             filter(phc020_ha_processed, year == y, gender == g, age_group == a),
             by = c("HLTH_AUTHORITY_NAME" = "health_auth")
           )
-
+        
         ha_phc035_lookup[[key]] <- ha %>%
           left_join(
             filter(phc035_binary_ha_processed, year == y, gender == g, age_group == a),
             by = c("HLTH_AUTHORITY_NAME" = "health_auth")
           )
-
+        
         hsda_phc005_lookup[[key]] <- hsda %>%
           left_join(
             filter(phc005_hsda_processed, year == y, gender == g, age_group == a),
             by = c("HLTH_SERVICE_DLVR_AREA_NAME" = "health_area")
           )
-
+        
         hsda_phc020_lookup[[key]] <- hsda %>%
           left_join(
             filter(phc020_hsda_processed, year == y, gender == g, age_group == a),
@@ -346,7 +346,7 @@ create_spatial_lookup <- function() {
       }
     }
   }
-
+  
   return(list(
     ha_phc005 = ha_phc005_lookup,
     ha_phc020 = ha_phc020_lookup,
@@ -365,7 +365,7 @@ spatial_lookups <- create_spatial_lookup()
 create_spatial_lookup_memoised <- memoise(create_spatial_lookup)
 spatial_lookups <- create_spatial_lookup_memoised()
 
- #save into rds file if needed
+#save into rds file if needed
 #   saveRDS(spatial_lookups, "spatial_lookups.rds")
 
 #import rds file
@@ -373,7 +373,7 @@ spatial_lookups <- create_spatial_lookup_memoised()
 
 #create color pallete
 color_comb <- c("#a6cee3", "#1f78b4", "#33a02c","#fb9a99","#fdbf6f","#ff7f00","#b2df8a","#6a3d9a","#d9d9d9","#ffff99","#fdb462","#e0f3f8","#fb8072","#d9d9d9","#b3de69","#f46d43","#4575b4")
-
+donut_pal <- c("#c6e1fa", "#99c9f7", "#7bb9f4", "#137ce2", "#0f68bd", "#0c4e8d","#031526")
 
 
 
@@ -384,8 +384,8 @@ ui <- page_navbar(
   theme = bs_theme(bootswatch = "minty", primary = "#384c6c", "navbar-bg" = "#384c6c"), #theme colors
   title = "Healthcare Access Trends in British Columbia",
   header = tagList(useShinyjs(),
-                    tags$head(
-                      tags$style(HTML("
+                   tags$head(
+                     tags$style(HTML("
                       .leaflet-control-gps a{ /*changes gps icon size */
                       width: 26px !important; 
                       height: 26px !important;
@@ -402,9 +402,9 @@ ui <- page_navbar(
                       .leaflet-control-gps    { order: 2 !important; } 
                       .leaflet-control-zoom   { order: 3 !important; } 
                                       ")
-                                 )
-                      )
-                   ),
+                     )
+                   )
+  ),
   nav_spacer(),
   nav_panel(title = "Map",
             page_fillable(
@@ -431,35 +431,35 @@ ui <- page_navbar(
                   ,
                   absolutePanel(
                     fixed = FALSE, top = 25, left = 25, width = 325, draggable = F, id = "map_side_panel",
-                                wellPanel(style = "background-color: rgba(241, 242, 243, 0.90);", #makes the absolute panel anti-flash white
-                                          selectInput("selected_year", "Year",
-                                                      choices = c("2015/2016",
-                                                                  "2017/2018",
-                                                                  "2019/2020"),
-                                                      selected = "2015/2016"),
-                                          selectInput(
-                                            "measure",
-                                            label = tagList("Measure",
-                                                            actionLink("measure_info", label = NULL, 
-                                                                       icon = icon("info-circle"),
-                                                                       style = "align-items: baseline ")),
-                                            choices = c("Appointment Wait Time >3 Days" = "PHC_035",
-                                                        "Immediate Care Available" = "PHC_005",
-                                                        "Has a Regular Provider" = "PHC_020"
-                                            ),
-                                            selected = "PHC_035"),
-                                          selectInput("gender_filter", "Gender",
-                                                      choices = c("All", "Male", "Female"),
-                                                      selected = "All"),
-                                          selectInput("age_filter", "Age Group",
-                                                      choices = c("All", "10-19", "20-34", "35-49", "50-64", "65+"),
-                                                      selected = "All"),
-                                          radioButtons("geo_level", "Geographic Boundaries",
-                                                       choices = c("Health Authority" = "HA",
-                                                                   "Health Service Delivery Area" = "HSDA"),
-                                                       selected = "HA"),
-                                          actionButton("hide_button","Hide panel", class = "btn btn-light")
-                                )
+                    wellPanel(style = "background-color: rgba(241, 242, 243, 0.90);", #makes the absolute panel anti-flash white
+                              selectInput("selected_year", "Year",
+                                          choices = c("2015/2016",
+                                                      "2017/2018",
+                                                      "2019/2020"),
+                                          selected = "2015/2016"),
+                              selectInput(
+                                "measure",
+                                label = tagList("Measure",
+                                                actionLink("measure_info", label = NULL, 
+                                                           icon = icon("info-circle"),
+                                                           style = "align-items: baseline ")),
+                                choices = c("Appointment Wait Time >3 Days" = "PHC_035",
+                                            "Immediate Care Available" = "PHC_005",
+                                            "Has a Regular Provider" = "PHC_020"
+                                ),
+                                selected = "PHC_035"),
+                              selectInput("gender_filter", "Gender",
+                                          choices = c("All", "Male", "Female"),
+                                          selected = "All"),
+                              selectInput("age_filter", "Age Group",
+                                          choices = c("All", "10-19", "20-34", "35-49", "50-64", "65+"),
+                                          selected = "All"),
+                              radioButtons("geo_level", "Geographic Boundaries",
+                                           choices = c("Health Authority" = "HA",
+                                                       "Health Service Delivery Area" = "HSDA"),
+                                           selected = "HA"),
+                              actionButton("hide_button","Hide panel", class = "btn btn-light")
+                    )
                   ),
                   absolutePanel(fixed = FALSE, top = 25, left = 25, id = "show_panel_container", style = "display:none;", #panel for 'show' button
                                 actionButton("show_button", "Show panel", class = "btn btn-dark"))
@@ -472,42 +472,44 @@ ui <- page_navbar(
             page_fluid(
               fluidRow(
                 column(3,
-                       wellPanel(
-                         selectInput("graph_measure",
-                                     label = tagList("Measure",
-                                                     actionLink("measure_info", label = NULL, 
-                                                                icon = icon("info-circle"),
-                                                                style = "align-items: baseline")),
-                                     choices = c("Appointment Wait Time >3 Days" = "PHC_035",
-                                                 "Immediate Care Available" = "PHC_005",
-                                                 "Has a Regular Provider" = "PHC_020"),
-                                     selected = "PHC_035"),
-                         selectInput("graph_gender", "Gender",
-                                     choices = c("All", "Male", "Female"),
-                                     selected = "All"),
-                         selectInput("graph_age", "Age Group",
-                                     choices = c("All", "10-19", "20-34", "35-49", "50-64", "65+"),
-                                     selected = "All"),
-                         radioButtons("graph_geo_level", "Geographic Boundaries",
-                                      choices = c("Health Authority" = "HA",
-                                                  "Health Service Delivery Area" = "HSDA"),
-                                      selected = "HA"),
-                         radioButtons("x_toggle", "X-Axis:", 
-                                      choices = c("Geographic Boundaries", "Year"),
-                                      selected = "Geographic Boundaries")
-                       )
+                       uiOutput("chart_controls")
                 ),
                 column(9,
-                       card(withSpinner(plotlyOutput("bar_plot", height = "600px"))),
-                       card_footer(
-                       layout_column_wrap(
-                       width = 1/4,
-                       uiOutput("avg_value_box"),
-                       uiOutput("trend_value_box"),
-                       uiOutput("min_value_box"),
-                       uiOutput("max_value_box")
-                       ) 
-                       )      
+                       navset_card_tab(
+                         id = "chart_tabs",
+                         nav_panel(
+                           title = "Trend Comparison",
+                           value = "bar_chart_tab", 
+                           card_body(
+                             withSpinner(plotlyOutput("bar_plot", height = "600px"))
+                           ),
+                           card_footer(
+                             layout_column_wrap(
+                               width = 1/4,
+                               uiOutput("avg_value_box"),
+                               uiOutput("trend_value_box"),
+                               uiOutput("min_value_box"),
+                               uiOutput("max_value_box")
+                             )
+                           )
+                         ),
+                         nav_panel(
+                           title = "Healthcare Service Details",
+                           value = "donut_chart_tab",
+                           h4(textOutput("donut_chart_title", inline = TRUE), align = "center"),
+                           hr(style = "margin-top: 0px; margin-bottom: 2px;"),
+                           fluidRow(
+                             column(6,
+                                    h5("Place for Immediate Care", align = "center"),
+                                    withSpinner(plotlyOutput("donut_phc010", height = "550px"))
+                             ),
+                             column(6,
+                                    h5("Wait Time for Appointment", align = "center"),
+                                    withSpinner(plotlyOutput("donut_phc035", height = "550px"))
+                             )
+                           )
+                         )
+                       )
                 )
               )
             )
@@ -581,7 +583,7 @@ server <- function(input, output, session) {
       }
     ")
   })
-
+  
   # Update map
   observe({
     data <- pop_data()
@@ -735,7 +737,7 @@ server <- function(input, output, session) {
         counts_display_lines    
       )
       
-        # Add PHC_010 and PHC_035 table only if data is available
+      # Add PHC_010 and PHC_035 table only if data is available
       if (!is_special_na_case) {
         if(input$measure == "PHC_005") {
           phc010_data <- get_phc010_data(region_name, is_ha)
@@ -873,27 +875,94 @@ server <- function(input, output, session) {
     show("map_side_panel")
     hide("show_panel_container")
   })
-
   
   
-  ####Graph server code ####
+  
+  ####Chart server code ####
+  
+  # Dynamic UI for chart controls
+  output$chart_controls <- renderUI({
+    # When user is on the trends tab, show the bar chart panel
+    if (input$chart_tabs == "bar_chart_tab") {
+      wellPanel(
+        selectInput("bar_measure",
+                    label = tagList("Measure",
+                                    actionLink("measure_info", label = NULL, icon = icon("info-circle"))),
+                    choices = c("Appointment Wait Time >3 Days" = "PHC_035",
+                                "Immediate Care Available" = "PHC_005",
+                                "Has a Regular Provider" = "PHC_020"),
+                    selected = "PHC_035"),
+        selectInput("bar_gender", "Gender",
+                    choices = c("All", "Male", "Female"),
+                    selected = "All"),
+        selectInput("bar_age", "Age Group",
+                    choices = c("All", "10-19", "20-34", "35-49", "50-64", "65+"),
+                    selected = "All"),
+        radioButtons("bar_geo_level", "Geographic Boundaries",
+                     choices = c("Health Authority" = "HA",
+                                 "Health Service Delivery Area" = "HSDA"),
+                     selected = "HA"),
+        radioButtons("bar_x_toggle", "X-Axis:",
+                     choices = c("Geographic Boundaries", "Year"),
+                     selected = "Geographic Boundaries")
+      )
+      # When user is on the other tab, show the donut panel
+    } else {
+      wellPanel(
+        selectInput("donut_year", "Year",
+                    choices = c("2015/2016", "2017/2018", "2019/2020"),
+                    selected = "2015/2016"),
+        selectInput("donut_region", "Region",
+                    choices = NULL), 
+        selectInput("donut_gender", "Gender",
+                    choices = c("All", "Male", "Female"),
+                    selected = "All"),
+        selectInput("donut_age", "Age Group",
+                    choices = c("All", "10-19", "20-34", "35-49", "50-64", "65+"),
+                    selected = "All"),
+        radioButtons("donut_geo_level", "Geographic Boundaries",
+                     choices = c("Health Authority" = "HA", "Health Service Delivery Area" = "HSDA"),
+                     selected = "HA")
+      )
+    }
+  })
+  
+  
+  observe({
+    # Only proceed if we are on the correct tab and the geo_level input exists
+    req(input$chart_tabs == "donut_chart_tab", input$donut_geo_level)
+    
+    new_choices <- if (input$donut_geo_level == "HA") {
+      sort(unique(ha$HLTH_AUTHORITY_NAME))
+    } else {
+      sort(unique(hsda$HLTH_SERVICE_DLVR_AREA_NAME))
+    }
+    
+    # Update the selectInput with the new choices
+    updateSelectInput(session, "donut_region", choices = new_choices)
+  })
+  
+  
+  
+  
   #selecting data frame
   bar_data <- reactive({
-    req(input$graph_measure, input$graph_gender, input$graph_age, input$graph_geo_level)
+    req(input$bar_measure, input$bar_gender, input$bar_age, input$bar_geo_level)
     
-    if (input$graph_geo_level == "HA") {
-      if (input$graph_measure == "PHC_005") {
+    
+    if (input$bar_geo_level == "HA") {
+      if (input$bar_measure == "PHC_005") {
         base_data <- phc005_ha_processed
-      } else if (input$graph_measure == "PHC_020") {
+      } else if (input$bar_measure == "PHC_020") {
         base_data <- phc020_ha_processed
       } else {
         base_data <- phc035_binary_ha_processed
       }
       geo_col <- "health_auth"
     } else {
-      if (input$graph_measure == "PHC_005") {
+      if (input$bar_measure == "PHC_005") {
         base_data <- phc005_hsda_processed
-      } else if (input$graph_measure == "PHC_020") {
+      } else if (input$bar_measure == "PHC_020") {
         base_data <- phc020_hsda_processed
       } else {
         base_data <- phc035_binary_hsda_processed
@@ -903,7 +972,7 @@ server <- function(input, output, session) {
     
     # Filter the data based on selected gender and age group
     filtered_data <- base_data %>%
-      filter(gender == input$graph_gender, age_group == input$graph_age) %>%
+      filter(gender == input$bar_gender, age_group == input$bar_age) %>%
       mutate(percent_display = round(percent * 100, 1)) # Convert to percentage for display
     
     return(list(data = filtered_data, geo_col = geo_col))
@@ -911,20 +980,25 @@ server <- function(input, output, session) {
   
   # Render bar plot
   output$bar_plot <- renderPlotly({
-    req(input$x_toggle)
+    req(input$bar_x_toggle) # Ensure controls are loaded
     plot_data <- bar_data()
     
     # Get the appropriate title based on the selected measure
     measure_title <- case_when(
-      input$graph_measure == "PHC_005" ~ "Immediate Care Available",
-      input$graph_measure == "PHC_020" ~ "Has a Regular Provider",
-      input$graph_measure == "PHC_035" ~ "Appointment Wait Time >3 Days",
-      TRUE ~ input$graph_measure
+      input$bar_measure == "PHC_005" ~ "Immediate Care Available",
+      input$bar_measure == "PHC_020" ~ "Has a Regular Provider",
+      input$bar_measure == "PHC_035" ~ "Appointment Wait Time >3 Days",
+      TRUE ~ input$bar_measure
     )
     
+    legend_title <- if (input$bar_x_toggle == "Geographic Boundaries") { #legend change for when selecting region vs year in x-axis
+      "Year"
+    } else {
+      if (input$bar_geo_level == "HA") "Health Authority" else "Health Service Delivery Area"
+    }
     
     # Create a plotly graph
-    if (input$x_toggle == "Geographic Boundaries"){
+    if (input$bar_x_toggle == "Geographic Boundaries"){
       # Create a bar plot with geographic boundaries on the x-axis
       p <- plot_data$data %>%
         plot_ly(x = ~get(plot_data$geo_col), 
@@ -938,13 +1012,13 @@ server <- function(input, output, session) {
                               "<br>Yes, count:", count_yes,
                               "<br>No, count:", count_no)) %>%
         layout(
-          title = paste0(measure_title, " (Gender: ", input$graph_gender, ", Age: ", input$graph_age, ")"),
-          xaxis = list(title = ifelse(input$graph_geo_level == "HA", "Health Authority", "Health Service Delivery Area"),
+          title = paste0(measure_title, " – Gender: ", input$bar_gender, ", Age: ", input$bar_age),
+          xaxis = list(title = ifelse(input$bar_geo_level == "HA", "Health Authority", "Health Service Delivery Area"),
                        tickangle = 45),
           yaxis = list(title = "Percentage (%)", range = c(0, 100)),
           barmode = "group",
           hovermode = "closest",
-          legend = list(title = list(text = "Year"))
+          legend = list(title = list(text = legend_title))
         )
     }
     else {
@@ -961,8 +1035,8 @@ server <- function(input, output, session) {
                               "<br>Yes, count:", count_yes,
                               "<br>No, count:", count_no)) %>%
         layout(
-          title = paste0(measure_title, " (Gender: ", input$graph_gender, ", Age: ", input$graph_age, ")"),
-          xaxis = list(title = ifelse(input$graph_geo_level == "HA", "Health Authority", "Health Service Delivery Area"),
+          title = paste0(measure_title, " (Gender: ", input$bar_gender, ", Age: ", input$bar_age, ")"),
+          xaxis = list(title = ifelse(input$bar_geo_level == "HA", "Health Authority", "Health Service Delivery Area"),
                        tickangle = 45),
           yaxis = list(title = "Percentage (%)", range = c(0, 100)),
           barmode = "group",
@@ -974,7 +1048,167 @@ server <- function(input, output, session) {
     }
   })
   
-  ##Value Boxes ####
+  
+  
+  # Reactive data for PHC_010 (Place of Care) donut chart
+  donut_phc010_data <- reactive({
+    req(input$donut_year, input$donut_geo_level, input$donut_region)
+    
+    df <- if (input$donut_geo_level == "HA") phc010_ha else phc010_hsda
+    region_col <- if (input$donut_geo_level == "HA") "health_auth" else "health_area"
+    
+    filtered <- df %>%
+      filter(year == input$donut_year, !!sym(region_col) == input$donut_region)
+    
+    if (input$donut_gender != "All") {
+      filtered <- filtered %>% filter(gender == input$donut_gender)
+    }
+    if (input$donut_age != "All") {
+      filtered <- filtered %>% filter(age_group == input$donut_age)
+    }
+    
+    aggregated <- filtered %>%
+      group_by(PHC_010) %>%
+      summarise(count = sum(count), .groups = "drop") %>%
+      mutate(response_label = case_when(
+        PHC_010 == 1 ~ "Doctor's office",
+        PHC_010 == 2 ~ "Hospital outpatient clinic",
+        PHC_010 == 3 ~ "Community health centre",
+        PHC_010 == 4 ~ "Walk-in clinic",
+        PHC_010 == 5 ~ "Hospital emergency room",
+        PHC_010 == 6 ~ "Some other place",
+        TRUE ~ "Unknown"
+      ))
+    
+    return(aggregated)
+  })
+  
+  # Reactive data for PHC_035 (Wait Time) donut chart
+  donut_phc035_data <- reactive({
+    req(input$donut_year, input$donut_geo_level, input$donut_region)
+    
+    df <- if (input$donut_geo_level == "HA") phc035_ha else phc035_hsda
+    region_col <- if (input$donut_geo_level == "HA") "health_auth" else "health_area"
+    
+    filtered <- df %>%
+      filter(year == input$donut_year, !!sym(region_col) == input$donut_region)
+    
+    if (input$donut_gender != "All") {
+      filtered <- filtered %>% filter(gender == input$donut_gender)
+    }
+    if (input$donut_age != "All") {
+      filtered <- filtered %>% filter(age_group == input$donut_age)
+    }
+    
+    aggregated <- filtered %>%
+      group_by(PHC_035) %>%
+      summarise(count = sum(count), .groups = "drop") %>%
+      mutate(response_label = case_when(
+        PHC_035 == 1 ~ "Same day",
+        PHC_035 == 2 ~ "Next day",
+        PHC_035 == 3 ~ "2-3 days",
+        PHC_035 == 4 ~ "4-6 days",
+        PHC_035 == 5 ~ "1-2 weeks",
+        PHC_035 == 6 ~ "2 weeks - 1 month",
+        TRUE ~ "Unknown"
+      ))
+    
+    return(aggregated)
+  })
+  
+  # plotly donut chart for Place of Care (PHC_010)
+  output$donut_phc010 <- renderPlotly({
+    plot_data <- donut_phc010_data()
+    
+    if (nrow(plot_data) == 0 || sum(plot_data$count) == 0) {
+      return(
+        plot_ly(type = 'scatter', mode = 'markers') %>%
+          layout(
+            xaxis = list(visible = FALSE),
+            yaxis = list(visible = FALSE),
+            annotations = list(
+              x = 0.5,
+              y = 0.5,
+              text = "No data available.",
+              xref = "paper",
+              yref = "paper",
+              showarrow = FALSE,
+              font = list(size = 16, color = "grey")
+            )
+          )
+      )
+    }
+    
+    plot_ly(plot_data,
+            labels = ~response_label,
+            values = ~count,
+            type = "pie",
+            hole = 0.6,
+            textinfo = "percent",
+            hoverinfo = "text",
+            text = ~paste(response_label, "<br>Count:", count),
+            marker = list(colors = color_comb, line = list(color = '#FFFFFF', width = 1.5)),
+            sort = FALSE) %>%
+      layout(showlegend = TRUE,
+             legend = list(orientation = 'h', y = -0.1),
+             margin = list(t = 40),
+             annotations = list(
+               list(x = 0.5, y = 0.5, text = paste("Total:", sum(plot_data$count)),
+                    showarrow = F, xref='paper', yref='paper', font = list(size=16))
+             ))
+  })
+  
+  # plotly donut chart for Wait Time (PHC_035)
+  output$donut_phc035 <- renderPlotly({
+    plot_data <- donut_phc035_data()
+    
+    if (nrow(plot_data) == 0 || sum(plot_data$count) == 0) {
+      return(
+        plot_ly(type = 'scatter', mode = 'markers') %>%
+          layout(
+            xaxis = list(visible = FALSE),
+            yaxis = list(visible = FALSE),
+            annotations = list(
+              x = 0.5,
+              y = 0.5,
+              text = "No data available.",
+              xref = "paper",
+              yref = "paper",
+              showarrow = FALSE,
+              font = list(size = 16, color = "grey")
+            )
+          )
+      )
+    }
+    
+    plot_ly(plot_data,
+            labels = ~response_label,
+            values = ~count,
+            type = "pie",
+            hole = 0.6,
+            textinfo = "percent",
+            hoverinfo = "text",
+            text = ~paste(response_label, "<br>Count:", count),
+            marker = list(colors = donut_pal, line = list(color = '#FFFFFF', width = 1.5)),
+            sort = FALSE) %>%
+      layout(showlegend = TRUE,
+             legend = list(orientation = 'h', y = -0.1),
+             margin = list(t = 40),
+             annotations = list(
+               list(x = 0.5, y = 0.5, text = paste("Total:", sum(plot_data$count)),
+                    showarrow = F, xref='paper', yref='paper', font = list(size=16))
+             ))
+  })
+  
+  #donut chart titles
+  output$donut_chart_title <- renderText({
+    req(input$donut_region) 
+    paste0(input$donut_region, " in ", input$donut_year, " – Gender: ", input$donut_gender, ", Age: ", input$donut_age)
+  })
+  
+  
+  
+  ##Chart Value Boxes ####
   
   # average value box
   output$avg_value_box <- renderUI({
@@ -992,7 +1226,7 @@ server <- function(input, output, session) {
       )
     } else { #show valid response
       
-      geo_level_name <- if (input$graph_geo_level == "HA") { #create geo level name
+      geo_level_name <- if (input$bar_geo_level == "HA") { #create geo level name
         "Health Authorities"
       } else {
         "Health Service Delivery Areas"
@@ -1031,7 +1265,7 @@ server <- function(input, output, session) {
     # Calculate absolute change in percentage points
     change <- avg_last_year - avg_first_year
     
-    is_good_measure <- input$graph_measure != "PHC_035" # Higher is better, except for wait times
+    is_good_measure <- input$bar_measure != "PHC_035" # Higher is better, except for wait times
     
     # Determine the trend icon and theme based on the change
     if (round(change, 1) == 0) {
@@ -1046,8 +1280,8 @@ server <- function(input, output, session) {
     }
     
     geo_level_name_plural <- reactive({
-      req(input$graph_geo_level)
-      if (input$graph_geo_level == "HA") {
+      req(input$bar_geo_level)
+      if (input$bar_geo_level == "HA") {
         "Health Authorities"
       } else {
         "Health Service Delivery Areas"
@@ -1063,13 +1297,13 @@ server <- function(input, output, session) {
       p(paste0("From ", round(avg_first_year, 1), "% to ", round(avg_last_year, 1), "%"),
         br(),
         "(2015/16 to 2019/2020)"
-        )
+      )
     )
   })
   
   
-
-    
+  
+  
   #min value box
   output$min_value_box <- renderUI({
     plot_info <- bar_data()
@@ -1089,7 +1323,7 @@ server <- function(input, output, session) {
     min_value <- min_row$avg_percent_display[1] #finds min value for just one area
     min_areas <- paste(min_row[[plot_info$geo_col]], collapse = ", ") # combine names when values are tied
     
-    is_good_measure <- input$graph_measure != "PHC_035" # Assume higher is better, except for wait times
+    is_good_measure <- input$bar_measure != "PHC_035" # Assume higher is better, except for wait times
     
     trend_icon <- if (is_good_measure) bs_icon("arrow-down-circle", class = "text-danger") else bs_icon("arrow-down-circle", class = "text-success")
     trend_theme <- if (is_good_measure) value_box_theme(bg = "#FFF1EE") else value_box_theme(bg = "#e2f6ef")
@@ -1126,7 +1360,7 @@ server <- function(input, output, session) {
     
     max_areas <- paste(max_row[[plot_info$geo_col]], collapse = ", ") 
     
-    is_good_measure <- input$graph_measure != "PHC_035" # Assume higher is better, except for wait times
+    is_good_measure <- input$bar_measure != "PHC_035" # Assume higher is better, except for wait times
     
     trend_icon <- if (is_good_measure) bs_icon("arrow-up-circle", class = "text-success") else bs_icon("arrow-up-circle", class = "text-danger")
     trend_theme <- if (is_good_measure) value_box_theme(bg = "#e2f6ef") else value_box_theme(bg = "#FFF1EE")
@@ -1168,7 +1402,7 @@ server <- function(input, output, session) {
                             <h5> Current State of Care </h5>
                             <p>Primary care is a key first point of contact with British Columbia's health care system and plays a vital role in patient outcomes. Yet timely access to these services continues to be a significant concern for residents throughout the province. Many British Columbians face extended wait times for appointments, struggle to establish relationships with regular healthcare providers, or lack knowledge of where to seek immediate care when needed. These fundamental aspects of healthcare access vary significantly across regions, demographics, and service types, creating potential inequities in our healthcare system.</p>
                             <h5>About This Dashboard</h5>
-                            <p> The goal of this dashboard is to offer a comprehensive view of healthcare access patterns throughout the province using data from the <b> Canadian Community Health Survey (CCHS)</b>. The dashboard visualizes key indicators of primary care accessibility, including appointment wait times, access to regular healthcare providers, and availability of immediate care options. By understanding these patterns, we can:</p>
+                            <p> The goal of this dashboard is to offer a comprehensive view of healthcare access patterns throughout the province using data from the <b> Canadian Community Health Survey (CCHS)</b>. By understanding these patterns, we can:</p>
                             <ul>
                             <li>Identify underserved regions and populations</li>
                             <li>Support targeted improvements in healthcare delivery</li>
@@ -1182,7 +1416,7 @@ server <- function(input, output, session) {
                             </ol>
                             <br>
                             <i>Developed by Kenneth Zhang, Master of Public Health.<br>
-                            Contact: <a href ='mailto:kkzhang@sfu.ca'>kkzhang@sfu.ca</a><br>
+                            Contact: <a href ='mailto:kkzhang551@gmail.com'>kkzhang551@gmail.com</a><br>
                             <a href='https://github.com/kalzhang/Shiny-CCHS' target='_blank'><i class='fa-brands fa-github'></i>View Source Code on GitHub</a></i>
                             "
                             ),
@@ -1190,7 +1424,7 @@ server <- function(input, output, session) {
                             size = "l",
                             easyClose = T,
                             fade = T
-                            )
+  )
   
   showModal(info_modal) #opens up the window on start-up
   
