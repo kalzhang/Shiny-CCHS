@@ -215,6 +215,8 @@ phc035_binary_hsda <- bc_all %>%
     .groups = "drop"
   )
 
+
+
 # Create a function to pre-calculate all combinations for each phc005 and phc020
 preprocess_measure_data <- function(base_data, geo_level_col) {
   # Calculate aggregates for all combinations of gender and age
@@ -285,6 +287,24 @@ hsda <- st_transform(health_hsda(), crs = 4326)
 # Simplify geometry to reduce complexity
 ha <- st_simplify(ha, dTolerance = 300)  # Adjust tolerance to smooth
 hsda <- st_simplify(hsda, dTolerance = 300)
+
+#calculate provincial avgs for chart
+cal_pro_avg <- function(processed_ha_data) {
+  processed_ha_data %>%
+    group_by(year, gender, age_group) %>%
+    summarise(
+      total_yes = sum(count_yes, na.rm = T),
+      total_no = sum(count_no, na.rm = T),
+      prov_avg = total_yes/(total_yes + total_no),
+      .groups = "drop"
+    )
+}
+
+provincial_averages <- list(
+  PHC_005 = cal_pro_avg(phc005_ha_processed),
+  PHC_020 = cal_pro_avg(phc020_ha_processed),
+  PHC_035 = cal_pro_avg(phc035_binary_ha_processed)
+)
 
 #Create lookup tables for each combination of geo level and measure
 create_spatial_lookup <- function() {
@@ -686,6 +706,25 @@ server <- function(input, output, session) {
       return(phc035_agg)
     }
     
+    ##calculating differences
+    #get datatable for averages
+    avg_data_table <- provincial_averages[[input$measure]]
+    
+    # Filter that table to find the average value we need
+    prov_avg_row <- avg_data_table %>%
+      filter(
+        year == input$selected_year,
+        gender == input$gender_filter,
+        age_group == input$age_filter
+      )
+    
+    provincial_avg <- if (nrow(prov_avg_row) > 0) {
+      pull(prov_avg_row, prov_avg)
+    } else {
+      NA
+    }
+    
+    
     # Generate click popup on map
     popup_contents <- lapply(1:nrow(data), function(i) {
       row <- data[i,]
@@ -728,12 +767,30 @@ server <- function(input, output, session) {
                "Total responses: ", ifelse(is.na(row$count_yes + row$count_no), "NA", row$count_yes + row$count_no))
       }
       
+      # Create the comparison line
+      comparison_line <- "" # Default to empty
+      if (!is.na(row$percent) && !is.na(provincial_avg) && !is_special_na_case) {
+        diff <- (row$percent - provincial_avg) * 100
+        direction <- if (diff >= 0.1) "above" else "below"
+        
+        # Special case for values that are very close to the average
+        if (abs(diff) == 0) {
+          comparison_line <- paste0("<em>This is <u>consistent</u> with the provincial average of ", round(provincial_avg * 100, 1), "%.</em><br>")
+        } else {
+          comparison_line <- paste0(
+            "<em>This is ", round(abs(diff), 1), " p.p. <u>", direction, "</u> the provincial average of ",
+            round(provincial_avg * 100, 1), "%.</em><br>"
+          )
+        }
+      }
+      
       # popup content content
       basic_info <- paste0(
         "<strong>", region_name, "</strong><br>",
         "Measure: ", measure_name, "<br>",
         "Year: ", input$selected_year, "<br>",
-        percent_display_line,   
+        percent_display_line,
+        comparison_line, "<br>",
         counts_display_lines    
       )
       
@@ -1078,7 +1135,8 @@ server <- function(input, output, session) {
         PHC_010 == 5 ~ "Hospital emergency room",
         PHC_010 == 6 ~ "Some other place",
         TRUE ~ "Unknown"
-      ))
+      )) %>%
+      arrange(desc(count))
     
     return(aggregated)
   })
@@ -1212,28 +1270,39 @@ server <- function(input, output, session) {
   
   # average value box
   output$avg_value_box <- renderUI({
-    # Use bar plot data
-    plot_info <- bar_data()
-    req(plot_info$data, nrow(plot_info$data) > 0) #makes sure data is not 0
-    avg_percent <- mean(plot_info$data$percent_display, na.rm = TRUE) #calc average
-    # Check if the calculation resulted in a valid number.
-    if (is.nan(avg_percent)) {
+    req(input$bar_measure, input$bar_gender, input$bar_age, input$bar_geo_level)
+    
+    # Get the correct provincial average using the same logic as the map
+    avg_data_table <- provincial_averages[[input$bar_measure]]
+    
+    # We need to average across all years for the value box context
+    # So we filter by gender and age, then summarise across years
+    prov_avg_row <- avg_data_table %>%
+      filter(
+        gender == input$bar_gender,
+        age_group == input$bar_age
+      ) %>%
+      summarise(
+        avg_percent = sum(total_yes, na.rm = TRUE) / sum(total_yes + total_no, na.rm = TRUE)
+      )
+    
+    avg_percent_display <- if (nrow(prov_avg_row) > 0) {
+      pull(prov_avg_row, avg_percent) * 100
+    } else {
+      NA
+    }
+    
+    if (is.na(avg_percent_display) || is.nan(avg_percent_display)) {
       value_box(
         title = "Average",
         value = "Not Available",
         showcase = bs_icon("x-circle"), 
         theme = "secondary"
       )
-    } else { #show valid response
-      
-      geo_level_name <- if (input$bar_geo_level == "HA") { #create geo level name
-        "Health Authorities"
-      } else {
-        "Health Service Delivery Areas"
-      }
+    } else {
       value_box(
-        title = "Average across all " %>% HTML("<br>", paste0(geo_level_name)),
-        value = paste0(round(avg_percent, 1), "%"), 
+        title = HTML("Provincial Average<br>(across all years)"),
+        value = paste0(round(avg_percent_display, 1), "%"), 
         showcase = bs_icon("bar-chart-fill", class = "text-info"),
         theme = value_box_theme(bg = "#ecf5fd"),
         min_height = "185px"
@@ -1243,19 +1312,26 @@ server <- function(input, output, session) {
   
   # Change from past years
   output$trend_value_box <- renderUI({
-    plot_info <- bar_data()
-    req(plot_info$data, nrow(plot_info$data) > 0)
+    req(input$bar_measure, input$bar_gender, input$bar_age)
     
-    # Calculate average for the first and last year
-    avg_first_year <- plot_info$data %>%
-      filter(year == "2015/2016") %>%
-      summarise(avg = mean(percent_display, na.rm = TRUE)) %>%
-      pull(avg)
+    # Use the pre-calculated provincial averages table
+    avg_data_table <- provincial_averages[[input$bar_measure]]
     
-    avg_last_year <- plot_info$data %>%
-      filter(year == "2019/2020") %>%
-      summarise(avg = mean(percent_display, na.rm = TRUE)) %>%
-      pull(avg)
+    # Filter for the specific demographic
+    filtered_avgs <- avg_data_table %>%
+      filter(
+        gender == input$bar_gender,
+        age_group == input$bar_age
+      )
+    
+    # Get the true provincial average for the first and last years
+    avg_first_year <- filtered_avgs %>% 
+      filter(year == "2015/2016") %>% 
+      pull(prov_avg)
+    
+    avg_last_year <- filtered_avgs %>% 
+      filter(year == "2019/2020") %>% 
+      pull(prov_avg)
     
     # Ensure we have data for both years to compare
     if (length(avg_first_year) == 0 || length(avg_last_year) == 0 || is.na(avg_first_year) || is.na(avg_last_year)) {
@@ -1263,9 +1339,9 @@ server <- function(input, output, session) {
     }
     
     # Calculate absolute change in percentage points
-    change <- avg_last_year - avg_first_year
+    change <- (avg_last_year - avg_first_year) * 100
     
-    is_good_measure <- input$bar_measure != "PHC_035" # Higher is better, except for wait times
+    is_good_measure <- input$bar_measure != "PHC_035"
     
     # Determine the trend icon and theme based on the change
     if (round(change, 1) == 0) {
@@ -1279,22 +1355,15 @@ server <- function(input, output, session) {
       trend_theme <- if (is_good_measure) value_box_theme(bg = "#FFF1EE") else value_box_theme(bg = "#e2f6ef")
     }
     
-    geo_level_name_plural <- reactive({
-      req(input$bar_geo_level)
-      if (input$bar_geo_level == "HA") {
-        "Health Authorities"
-      } else {
-        "Health Service Delivery Areas"
-      }
-    })
-    
+    geo_level_name_plural <- if (input$bar_geo_level == "HA") "Health Authorities" else "Health Service Delivery Areas"
     
     value_box(
-      title = HTML("Trend across ", geo_level_name_plural()), 
+      title = HTML("Provincial Trend"), 
       value = paste0(sprintf("%+.1f", change), " p.p."), # p.p. is percentage points
       showcase = trend_icon,
       theme = trend_theme,
-      p(paste0("From ", round(avg_first_year, 1), "% to ", round(avg_last_year, 1), "%"),
+      min_height = "185px",
+      p(paste0("From ", round(avg_first_year * 100, 1), "% to ", round(avg_last_year * 100, 1), "%"),
         br(),
         "(2015/16 to 2019/2020)"
       )
@@ -1304,79 +1373,88 @@ server <- function(input, output, session) {
   
   
   
+  
   #min value box
   output$min_value_box <- renderUI({
     plot_info <- bar_data()
     req(plot_info$data, nrow(plot_info$data) > 0)
     
-    # Calculate average percentage for each geographic area across all years
+    # Calculate the true weighted average for each geographic area across all years
     avg_data <- plot_info$data %>%
       group_by(!!sym(plot_info$geo_col)) %>%
-      summarise(avg_percent_display = mean(percent_display, na.rm = TRUE), .groups = "drop")
+      summarise(
+        total_yes = sum(count_yes, na.rm = TRUE),
+        total_responses = sum(count_yes + count_no, na.rm = TRUE),
+        weighted_avg_percent = (total_yes / total_responses) * 100,
+        .groups = "drop"
+      )
     
-    # Find  area with lowest average
+    # Find area with the lowest weighted average
     min_row <- avg_data %>%
-      slice_min(order_by = avg_percent_display, n = 1)
+      filter(!is.na(weighted_avg_percent)) %>%
+      slice_min(order_by = weighted_avg_percent, n = 1)
     
     req(nrow(min_row) > 0)
     
-    min_value <- min_row$avg_percent_display[1] #finds min value for just one area
-    min_areas <- paste(min_row[[plot_info$geo_col]], collapse = ", ") # combine names when values are tied
+    min_value <- min_row$weighted_avg_percent[1]
+    min_areas <- paste(min_row[[plot_info$geo_col]], collapse = ", ")
     
-    is_good_measure <- input$bar_measure != "PHC_035" # Assume higher is better, except for wait times
+    is_good_measure <- input$bar_measure != "PHC_035"
     
     trend_icon <- if (is_good_measure) bs_icon("arrow-down-circle", class = "text-danger") else bs_icon("arrow-down-circle", class = "text-success")
     trend_theme <- if (is_good_measure) value_box_theme(bg = "#FFF1EE") else value_box_theme(bg = "#e2f6ef")
     
-    tagList(
-      value_box(
-        title = HTML("Lowest average<br> (across all years)"),
-        value = paste0(round(min_value, 1), "%"),
-        showcase = trend_icon,
-        theme = trend_theme,
-        min_height = "185px",
-        p(paste("in", min_areas)) 
-      )
+    value_box(
+      title = HTML("Lowest Average<br>(across all years)"),
+      value = paste0(round(min_value, 1), "%"),
+      showcase = trend_icon,
+      theme = trend_theme,
+      min_height = "185px",
+      p(paste("in", min_areas)) 
     )
   })
   
   #max value box
+  
   output$max_value_box <- renderUI({
     plot_info <- bar_data()
     req(plot_info$data, nrow(plot_info$data) > 0)
     
-    # Calculate the average percentage for each geographic area across all years
+    # Calculate the true weighted average for each geographic area across all years
     avg_data <- plot_info$data %>%
       group_by(!!sym(plot_info$geo_col)) %>%
-      summarise(avg_percent_display = mean(percent_display, na.rm = TRUE), .groups = "drop")
+      summarise(
+        total_yes = sum(count_yes, na.rm = TRUE),
+        total_responses = sum(count_yes + count_no, na.rm = TRUE),
+        weighted_avg_percent = (total_yes / total_responses) * 100,
+        .groups = "drop"
+      )
     
-    # Find the geographic area with the highest average
+    # Find area with the highest weighted average
     max_row <- avg_data %>%
-      slice_max(order_by = avg_percent_display, n = 1)
+      filter(!is.na(weighted_avg_percent)) %>%
+      slice_max(order_by = weighted_avg_percent, n = 1)
     
     req(nrow(max_row) > 0)
     
-    max_value <- max_row$avg_percent_display[1]
+    max_value <- max_row$weighted_avg_percent[1]
+    max_areas <- paste(max_row[[plot_info$geo_col]], collapse = ", ")
     
-    max_areas <- paste(max_row[[plot_info$geo_col]], collapse = ", ") 
-    
-    is_good_measure <- input$bar_measure != "PHC_035" # Assume higher is better, except for wait times
+    is_good_measure <- input$bar_measure != "PHC_035"
     
     trend_icon <- if (is_good_measure) bs_icon("arrow-up-circle", class = "text-success") else bs_icon("arrow-up-circle", class = "text-danger")
     trend_theme <- if (is_good_measure) value_box_theme(bg = "#e2f6ef") else value_box_theme(bg = "#FFF1EE")
     
-    
-    tagList(
-      value_box(
-        title = HTML("Highest average<br> (across all years)"),
-        value = paste0(round(max_value, 1), "%"),
-        showcase = trend_icon,
-        theme = trend_theme,
-        min_height = "185px",
-        p(paste("in", max_areas)) # Display the name of the area
-      )
+    value_box(
+      title = HTML("Highest Average<br>(across all years)"),
+      value = paste0(round(max_value, 1), "%"),
+      showcase = trend_icon,
+      theme = trend_theme,
+      min_height = "185px",
+      p(paste("in", max_areas))
     )
   })
+  
   
   
   #modal (pop-up) windows####
